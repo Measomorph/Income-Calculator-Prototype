@@ -951,13 +951,20 @@
   });
 
   addAccountForm.addEventListener('submit', (e) => {
+    alert('Form submitted');
     e.preventDefault();
     const formData = new FormData(addAccountForm);
     const name = formData.get('name').trim();
     const type = formData.get('type');
-    const allocation = Number(formData.get('allocation'));
-    const startingBalance = Number(formData.get('startingBalance'));
-    if (!name || allocation < 0 || allocation > 100) return;
+    const allocationValue = formData.get('allocation');
+    const allocation = parseFloat(allocationValue);
+    const startingBalanceValue = formData.get('startingBalance');
+    const startingBalance = parseFloat(startingBalanceValue) || 0;
+    alert('Parsed - Name: ' + name + ', Type: ' + type + ', Allocation: ' + allocation + ', Starting: ' + startingBalance);
+    if (!name || !isFinite(allocation) || allocation < 0 || allocation > 100) {
+      alert('Validation failed');
+      return;
+    }
     const account = {
       id: createId(),
       name,
@@ -967,6 +974,7 @@
       directEntries: [],
     };
     accounts.push(account);
+    alert('Account added: ' + name);
     renderAccounts();
     updateDirectSelect();
     persistState();
