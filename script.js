@@ -130,6 +130,73 @@
     }
   }
 
+  function enterDetailEditMode(entryEl, person, entryId) {
+    const entry = person.entries.find((item) => item.id === entryId);
+    if (!entry) return;
+
+    entryEl.innerHTML = '';
+    entryEl.classList.add('detail-editing');
+
+    const descriptionInput = document.createElement('input');
+    descriptionInput.className = 'detail-edit-input';
+    descriptionInput.type = 'text';
+    descriptionInput.value = entry.description;
+    descriptionInput.placeholder = 'Description';
+
+    const amountInput = document.createElement('input');
+    amountInput.className = 'detail-edit-input';
+    amountInput.type = 'number';
+    amountInput.min = '0';
+    amountInput.step = '0.01';
+    amountInput.value = entry.amount.toFixed(2);
+    amountInput.placeholder = 'Amount';
+
+    const actions = document.createElement('div');
+    actions.className = 'detail-edit-actions';
+
+    const saveButton = document.createElement('button');
+    saveButton.type = 'button';
+    saveButton.className = 'detail-edit-save';
+    saveButton.dataset.action = 'save-entry';
+    saveButton.textContent = 'Save';
+
+    const cancelButton = document.createElement('button');
+    cancelButton.type = 'button';
+    cancelButton.className = 'detail-edit-cancel';
+    cancelButton.dataset.action = 'cancel-edit';
+    cancelButton.textContent = 'Cancel';
+
+    actions.append(saveButton, cancelButton);
+    entryEl.append(descriptionInput, amountInput, actions);
+    descriptionInput.focus();
+  }
+
+  function saveDetailEntry(entryEl, person, entryId) {
+    const entry = person.entries.find((item) => item.id === entryId);
+    if (!entry) return;
+
+    const descriptionInput = entryEl.querySelector('input[type="text"]');
+    const amountInput = entryEl.querySelector('input[type="number"]');
+    const description = (descriptionInput?.value || '').trim();
+    const amountValue = parseFloat(amountInput?.value || '');
+
+    if (!description) {
+      descriptionInput?.focus();
+      return;
+    }
+
+    if (!Number.isFinite(amountValue) || amountValue <= 0) {
+      amountInput?.focus();
+      return;
+    }
+
+    entry.description = description;
+    entry.amount = Math.abs(amountValue);
+    renderPerson(person);
+    renderSharedSummary();
+    persistState();
+  }
+
   function renderPerson(person) {
     computeMetrics(person);
 
@@ -173,13 +240,19 @@
           amount.className = 'detail-amount';
           amount.textContent = formatCurrency(entry.type === 'expense' ? -entry.amount : entry.amount);
 
+          const editButton = document.createElement('button');
+          editButton.className = 'detail-edit';
+          editButton.type = 'button';
+          editButton.dataset.action = 'edit-entry';
+          editButton.textContent = 'Edit';
+
           const removeButton = document.createElement('button');
           removeButton.className = 'detail-remove';
           removeButton.type = 'button';
           removeButton.dataset.action = 'remove-entry';
           removeButton.textContent = 'Remove';
 
-          item.append(description, amount, removeButton);
+          item.append(description, amount, editButton, removeButton);
           listEl.appendChild(item);
         });
       }
@@ -751,10 +824,11 @@
       listEl.addEventListener('click', (event) => {
         const target = event.target;
         if (!(target instanceof HTMLElement)) return;
+        const entryEl = target.closest('.detail-item');
+        if (!entryEl) return;
+        const entryId = entryEl.dataset.entryId;
+
         if (target.dataset.action === 'remove-entry') {
-          const entryEl = target.closest('.detail-item');
-          if (!entryEl) return;
-          const entryId = entryEl.dataset.entryId;
           person.entries = person.entries.filter((entry) => entry.id !== entryId);
           if (!person.entries.some((entry) => entry.type === typeKey)) {
             person.detailState.open = null;
@@ -762,6 +836,22 @@
           renderPerson(person);
           renderSharedSummary();
           persistState();
+          return;
+        }
+
+        if (target.dataset.action === 'edit-entry') {
+          enterDetailEditMode(entryEl, person, entryId);
+          return;
+        }
+
+        if (target.dataset.action === 'save-entry') {
+          saveDetailEntry(entryEl, person, entryId);
+          return;
+        }
+
+        if (target.dataset.action === 'cancel-edit') {
+          renderPerson(person);
+          return;
         }
       });
     });

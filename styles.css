@@ -394,12 +394,74 @@ header p {
   text-align: right;
 }
 
-.detail-remove {
-  border: none;
-  background: transparent;
-  color: var(--danger);
-  cursor: pointer;
-  font-size: 0.85rem;
+.detail-remove,
+    .detail-edit {
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.6rem;
+      border-radius: 12px;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .detail-edit {
+      color: var(--accent);
+    }
+
+    .detail-remove:hover,
+    .detail-edit:hover,
+    .detail-edit-save:hover,
+    .detail-edit-cancel:hover {
+      background: rgba(148, 163, 184, 0.12);
+    }
+
+    .detail-remove {
+      color: var(--danger);
+    }
+
+    .detail-editing {
+      gap: 0.75rem;
+      align-items: stretch;
+    }
+
+    .detail-edit-input {
+      flex: 1 1 140px;
+      min-width: 0;
+      padding: 0.65rem 0.75rem;
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      background: rgba(15, 23, 42, 0.55);
+      color: var(--text);
+      font-size: 0.95rem;
+      outline: none;
+    }
+
+    .detail-edit-actions {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .detail-edit-save,
+    .detail-edit-cancel {
+      padding: 0.55rem 0.9rem;
+      border-radius: 14px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+
+    .detail-edit-save {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+      color: #0b1120;
+    }
+
+    .detail-edit-cancel {
+      background: rgba(148, 163, 184, 0.12);
+      color: var(--text);
 }
 
 .list-empty {
