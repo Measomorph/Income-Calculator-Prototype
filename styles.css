@@ -799,6 +799,139 @@ header p {
   font-style: italic;
 }
 
+/* Accounts styles */
+.accounts-card .add-form {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.accounts-card .add-form input,
+.accounts-card .add-form select {
+  padding: 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--card-border);
+  background: rgba(15, 23, 42, 0.55);
+  color: var(--text);
+}
+
+.accounts-card .add-form button {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+  color: #0b1120;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.accounts-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.account-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  padding: 1rem;
+  box-shadow: var(--shadow);
+}
+
+.account-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.account-header input,
+.account-header select {
+  padding: 0.4rem;
+  border-radius: 6px;
+  border: 1px solid var(--card-border);
+  background: rgba(15, 23, 42, 0.55);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.account-header .remove-account {
+  background: var(--danger);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.account-breakdown {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.breakdown-card {
+  background: var(--muted-surface);
+  padding: 0.5rem;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.breakdown-card strong {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-subtle);
+  margin-bottom: 0.25rem;
+}
+
+.breakdown-card .pill {
+  font-weight: 600;
+}
+
+.account-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--accent-soft);
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.account-total span:first-child {
+  font-weight: 600;
+}
+
+.direct-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.direct-item {
+  display: grid;
+  grid-template-columns: 2fr 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+  background: var(--muted-surface);
+  padding: 0.5rem;
+  border-radius: 6px;
+}
+
+.direct-item button {
+  background: var(--danger);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.2rem 0.4rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
 .snapshot-item {
   background: rgba(15, 23, 42, 0.55);
   border: 1px solid rgba(148, 163, 184, 0.16);

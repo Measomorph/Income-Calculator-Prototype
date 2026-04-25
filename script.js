@@ -2,25 +2,17 @@
   const storageKey = 'income-shared-planner-v2';
   const currencyInput = document.getElementById('currency-symbol');
   const sharedPercentageInput = document.getElementById('shared-percentage');
-  const sharedForm = document.getElementById('shared-direct-form');
-  const sharedContributionList = document.querySelector('[data-role="shared-contributions"]');
-  const sharedDirectList = document.querySelector('[data-role="shared-direct"]');
-  const sharedTotalField = document.querySelector('[data-field="shared-total"]');
-  const sharedContributionTotal = document.querySelector('[data-field="shared-contribution-total"]');
-  const sharedDirectTotal = document.querySelector('[data-field="shared-direct-total"]');
-  const sharedBaseDisplay = document.querySelector('[data-field="shared-base-display"]');
-  const sharedBasePill = document.querySelector('[data-field="shared-base-pill"]');
-  const sharedPercentagePill = document.querySelector('[data-field="shared-percentage-pill"]');
-  const sharedStartingInput = document.getElementById('shared-starting-balance');
+  const addAccountForm = document.getElementById('add-account-form');
+  const accountsGrid = document.getElementById('accounts-grid');
+  const accountDirectForm = document.getElementById('account-direct-form');
+  const directAccountSelect = document.getElementById('direct-account-select');
   const snapshotForm = document.getElementById('snapshot-form');
   const snapshotMonthInput = document.getElementById('snapshot-month');
   const snapshotList = document.querySelector('[data-role="snapshot-list"]');
   const snapshotStatus = document.querySelector('[data-role="snapshot-status"]');
   const snapshotChart = document.getElementById('snapshot-chart');
 
-  const sharedDirectEntries = [];
-  const monthlySnapshots = [];
-  let sharedStartingBalance = 0;
+  const accounts = [];
   let isRestoring = false;
   let lastSnapshotChartData = [];
   let lastAllocation = null;
@@ -312,12 +304,20 @@
 
     const shareContributionTotal = perPerson.reduce((sum, item) => sum + item.shareContribution, 0);
 
+    const totalAllocPercent = accounts.reduce((sum, a) => sum + a.allocationPercentage, 0);
+    const accountContributions = accounts.map(account => {
+      const percent = totalAllocPercent > 0 ? account.allocationPercentage / totalAllocPercent : 0;
+      const amount = percent * shareContributionTotal;
+      return { accountId: account.id, amount };
+    });
+
     return {
       sharePercentage,
       combinedNet,
       keepPerPerson,
       shareContributionTotal,
       perPerson,
+      accountContributions,
     };
   }
 
@@ -332,38 +332,8 @@
     const allocation = calculateAllocations();
     lastAllocation = allocation;
 
-    const { contributionTotal, directTotal, total } = computeSharedTotals(allocation);
-
-    sharedContributionList.innerHTML = '';
     allocation.perPerson.forEach((alloc, index) => {
       const person = people[index];
-      const name = person.nameInput.value.trim() || `Person ${index + 1}`;
-
-      const chip = document.createElement('div');
-      chip.className = 'chip';
-
-      const main = document.createElement('div');
-      main.className = 'chip-main';
-
-      const title = document.createElement('strong');
-      title.textContent = name;
-      main.appendChild(title);
-
-      if (Math.abs(alloc.balancingTransfer) > 0.005) {
-        const note = document.createElement('small');
-        note.textContent = alloc.balancingTransfer > 0
-          ? `Receives ${formatCurrency(alloc.balancingTransfer)} to balance`
-          : `Supports ${formatCurrency(Math.abs(alloc.balancingTransfer))}`;
-        main.appendChild(note);
-      }
-
-      const amount = document.createElement('span');
-      amount.className = 'amount';
-      amount.textContent = formatCurrency(alloc.shareContribution);
-
-      chip.append(main, amount);
-      sharedContributionList.appendChild(chip);
-
       person.totalsEls.share.textContent = formatCurrency(alloc.shareContribution);
       updateValueState(person.totalsEls.share, alloc.shareContribution);
 
@@ -374,46 +344,145 @@
       updateValueState(person.totalsEls.balance, alloc.balancingTransfer);
     });
 
-    ensureEntriesPlaceholder(sharedContributionList, 'No shared contributions yet.');
+    renderAccounts();
+    return allocation;
+  }
 
-    sharedContributionTotal.textContent = formatCurrency(contributionTotal);
-    sharedPercentagePill.textContent = `${allocation.sharePercentage.toFixed(0)}%`;
+  function updateDirectSelect() {
+    directAccountSelect.innerHTML = '<option value="">Select account</option>';
+    accounts.forEach(acc => {
+      const opt = document.createElement('option');
+      opt.value = acc.id;
+      opt.textContent = acc.name;
+      directAccountSelect.appendChild(opt);
+    });
+  }
 
-    sharedDirectList.innerHTML = '';
-    if (sharedDirectEntries.length === 0) {
-      ensureEntriesPlaceholder(sharedDirectList, 'No direct additions yet.');
+  function renderAccounts() {
+    accountsGrid.innerHTML = '';
+    accounts.forEach(account => renderAccount(account));
+  }
+
+  function renderAccount(account) {
+    const card = document.createElement('article');
+    card.className = 'account-card';
+    card.dataset.account = account.id;
+
+    const header = document.createElement('div');
+    header.className = 'account-header';
+
+    const nameInput = document.createElement('input');
+    nameInput.className = 'account-name';
+    nameInput.value = account.name;
+    nameInput.addEventListener('input', () => {
+      account.name = nameInput.value.trim();
+      persistState();
+    });
+
+    const typeSelect = document.createElement('select');
+    typeSelect.className = 'account-type';
+    ['savings', 'investment', 'tax', 'other'].forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t;
+      opt.textContent = t.charAt(0).toUpperCase() + t.slice(1);
+      if (t === account.type) opt.selected = true;
+      typeSelect.appendChild(opt);
+    });
+    typeSelect.addEventListener('change', () => {
+      account.type = typeSelect.value;
+      persistState();
+    });
+
+    const allocInput = document.createElement('input');
+    allocInput.className = 'account-allocation';
+    allocInput.type = 'number';
+    allocInput.min = '0';
+    allocInput.max = '100';
+    allocInput.step = '0.01';
+    allocInput.value = account.allocationPercentage;
+    allocInput.addEventListener('input', () => {
+      account.allocationPercentage = Number(allocInput.value);
+      persistState();
+    });
+
+    const startingInput = document.createElement('input');
+    startingInput.className = 'account-starting';
+    startingInput.type = 'number';
+    startingInput.step = '0.01';
+    startingInput.value = account.startingBalance;
+    startingInput.addEventListener('input', () => {
+      account.startingBalance = Number(startingInput.value);
+      persistState();
+    });
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'remove-account';
+    removeBtn.textContent = 'Remove';
+    removeBtn.addEventListener('click', () => {
+      const index = accounts.indexOf(account);
+      if (index > -1) {
+        accounts.splice(index, 1);
+        renderAccounts();
+        updateDirectSelect();
+        persistState();
+      }
+    });
+
+    header.append(nameInput, typeSelect, allocInput, startingInput, removeBtn);
+
+    const breakdown = document.createElement('div');
+    breakdown.className = 'account-breakdown';
+
+    const startingCard = document.createElement('div');
+    startingCard.className = 'breakdown-card';
+    startingCard.innerHTML = '<strong>Starting Balance</strong><span class="pill" data-field="starting-display"></span>';
+
+    const contribCard = document.createElement('div');
+    contribCard.className = 'breakdown-card';
+    contribCard.innerHTML = '<strong>Contributions</strong><span class="pill" data-field="contributions"></span>';
+
+    const directCard = document.createElement('div');
+    directCard.className = 'breakdown-card';
+    directCard.innerHTML = '<strong>Direct Additions</strong><span class="pill" data-field="direct-total"></span>';
+
+    breakdown.append(startingCard, contribCard, directCard);
+
+    const totalDiv = document.createElement('div');
+    totalDiv.className = 'account-total';
+    totalDiv.innerHTML = '<span>Total in account</span><span data-field="account-total"></span>';
+
+    const directList = document.createElement('div');
+    directList.className = 'direct-list';
+    directList.dataset.role = 'account-direct';
+    directList.dataset.accountId = account.id;
+
+    card.append(header, breakdown, totalDiv, directList);
+
+    accountsGrid.appendChild(card);
+
+    // update values
+    const allocation = lastAllocation;
+    const accountContrib = allocation?.accountContributions?.find(c => c.accountId === account.id)?.amount || 0;
+    const directTotal = account.directEntries.reduce((sum, e) => sum + e.amount, 0);
+    const total = account.startingBalance + accountContrib + directTotal;
+
+    card.querySelector('[data-field="starting-display"]').textContent = formatCurrency(account.startingBalance);
+    card.querySelector('[data-field="contributions"]').textContent = formatCurrency(accountContrib);
+    card.querySelector('[data-field="direct-total"]').textContent = formatCurrency(directTotal);
+    card.querySelector('[data-field="account-total"]').textContent = formatCurrency(total);
+
+    // render direct list
+    directList.innerHTML = '';
+    if (account.directEntries.length === 0) {
+      ensureEntriesPlaceholder(directList, 'No direct additions yet.');
     } else {
-      sharedDirectEntries.forEach((entry) => {
-        const chip = document.createElement('div');
-        chip.className = 'chip';
-        chip.dataset.entryId = entry.id;
-
-        const main = document.createElement('div');
-        main.className = 'chip-main';
-        const label = document.createElement('strong');
-        label.textContent = entry.description;
-        main.appendChild(label);
-
-        const amount = document.createElement('span');
-        amount.className = 'amount';
-        amount.textContent = formatCurrency(entry.amount);
-
-        const remove = document.createElement('button');
-        remove.type = 'button';
-        remove.dataset.action = 'remove-direct';
-        remove.textContent = 'Remove';
-
-        chip.append(main, amount, remove);
-        sharedDirectList.appendChild(chip);
+      account.directEntries.forEach(entry => {
+        const item = document.createElement('div');
+        item.className = 'direct-item';
+        item.innerHTML = `<span>${entry.description}</span><span>${formatCurrency(entry.amount)}</span><button data-action="remove-direct" data-entry-id="${entry.id}">Remove</button>`;
+        directList.appendChild(item);
       });
     }
-
-    sharedDirectTotal.textContent = formatCurrency(directTotal);
-    sharedBaseDisplay.textContent = formatCurrency(sharedStartingBalance);
-    sharedBasePill.textContent = formatCurrency(sharedStartingBalance);
-    sharedTotalField.textContent = formatCurrency(total);
-
-    return allocation;
   }
 
   function renderSnapshots() {
@@ -650,14 +719,18 @@
             type: entry.type,
           })),
         })),
-        shared: {
-          startingBalance: sharedStartingBalance,
-          directEntries: sharedDirectEntries.map((entry) => ({
+        accounts: accounts.map((account) => ({
+          id: account.id,
+          name: account.name,
+          type: account.type,
+          allocationPercentage: account.allocationPercentage,
+          startingBalance: account.startingBalance,
+          directEntries: account.directEntries.map((entry) => ({
             id: entry.id,
             description: entry.description,
             amount: entry.amount,
           })),
-        },
+        })),
         snapshots: monthlySnapshots,
       };
       localStorage.setItem(storageKey, JSON.stringify(payload));
@@ -702,19 +775,25 @@
         });
       }
 
-      if (state.shared) {
-        sharedStartingBalance = Number(state.shared.startingBalance) || 0;
-        sharedStartingInput.value = sharedStartingBalance.toFixed(2);
+      }
 
-        if (Array.isArray(state.shared.directEntries)) {
-          sharedDirectEntries.splice(0, sharedDirectEntries.length, ...state.shared.directEntries
+      if (Array.isArray(state.accounts)) {
+        accounts.splice(0, accounts.length, ...state.accounts.map((acc) => ({
+          id: acc.id || createId(),
+          name: String(acc.name || '').trim(),
+          type: acc.type || 'savings',
+          allocationPercentage: Number(acc.allocationPercentage) || 0,
+          startingBalance: Number(acc.startingBalance) || 0,
+          directEntries: Array.isArray(acc.directEntries) ? acc.directEntries
             .map((entry) => ({
               id: entry.id || createId(),
               description: String(entry.description || '').trim(),
               amount: Math.abs(Number(entry.amount)) || 0,
             }))
-            .filter((entry) => entry.description && entry.amount > 0));
-        }
+            .filter((entry) => entry.description && entry.amount > 0) : [],
+        })));
+        renderAccounts();
+        updateDirectSelect();
       }
 
       if (Array.isArray(state.snapshots)) {
@@ -871,56 +950,60 @@
     renderPerson(person);
   });
 
-  sharedForm.addEventListener('submit', (event) => {
-    event.preventDefault();
-    const formData = new FormData(sharedForm);
-    const description = (formData.get('description') || '').toString().trim();
-    const amountValue = parseFloat(formData.get('amount'));
+  addAccountForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const formData = new FormData(addAccountForm);
+    const name = formData.get('name').trim();
+    const type = formData.get('type');
+    const allocation = Number(formData.get('allocation'));
+    const startingBalance = Number(formData.get('startingBalance'));
+    if (!name || allocation < 0 || allocation > 100) return;
+    const account = {
+      id: createId(),
+      name,
+      type,
+      allocationPercentage: allocation,
+      startingBalance,
+      directEntries: [],
+    };
+    accounts.push(account);
+    renderAccounts();
+    updateDirectSelect();
+    persistState();
+    addAccountForm.reset();
+  });
 
-    if (!description) {
-      sharedForm.querySelector('[name="description"]').focus();
-      return;
-    }
-
-    const amount = Number.isFinite(amountValue) ? Math.abs(amountValue) : 0;
-    if (amount === 0) {
-      sharedForm.querySelector('[name="amount"]').focus();
-      return;
-    }
-
-    sharedDirectEntries.push({
+  accountDirectForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const formData = new FormData(accountDirectForm);
+    const accountId = formData.get('account');
+    const description = formData.get('description').trim();
+    const amount = Number(formData.get('amount'));
+    if (!accountId || !description || amount <= 0) return;
+    const account = accounts.find(a => a.id === accountId);
+    if (!account) return;
+    const entry = {
       id: createId(),
       description,
       amount,
-    });
-
-    sharedForm.reset();
-    sharedForm.querySelector('[name="description"]').focus();
-    renderSharedSummary();
+    };
+    account.directEntries.push(entry);
+    renderAccounts();
     persistState();
+    accountDirectForm.reset();
   });
 
-  sharedDirectList.addEventListener('click', (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
-    if (target.dataset.action === 'remove-direct') {
-      const entryId = target.closest('.chip')?.dataset.entryId;
-      if (!entryId) return;
-      const index = sharedDirectEntries.findIndex((entry) => entry.id === entryId);
-      if (index >= 0) {
-        sharedDirectEntries.splice(index, 1);
-        renderSharedSummary();
+  accountsGrid.addEventListener('click', (e) => {
+    if (e.target.dataset.action === 'remove-direct') {
+      const accountId = e.target.closest('.account-card').dataset.account;
+      const entryId = e.target.dataset.entryId;
+      const account = accounts.find(a => a.id === accountId);
+      if (account) {
+        account.directEntries = account.directEntries.filter(e => e.id !== entryId);
+        renderAccounts();
         persistState();
       }
     }
-  });
-
-  sharedStartingInput.addEventListener('change', () => {
-    const value = parseFloat(sharedStartingInput.value);
-    sharedStartingBalance = Number.isFinite(value) ? value : 0;
-    sharedStartingInput.value = sharedStartingBalance.toFixed(2);
-    renderSharedSummary();
-    persistState();
   });
 
   sharedPercentageInput.addEventListener('input', () => {
@@ -978,6 +1061,7 @@
   applyPersistedState();
   people.forEach(renderPerson);
   renderSharedSummary();
+  updateDirectSelect();
   renderSnapshots();
   initializeSnapshotMonth();
   persistState();
