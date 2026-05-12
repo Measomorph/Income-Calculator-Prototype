@@ -3,210 +3,73 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Income & Shared Budget Planner</title>
+  <title>Tempo Rhythem Project</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <main class="container">
-    <header>
-      <h1>Income & Shared Budget Planner</h1>
-      <p>Pool both incomes, align your spending power, and route the remainder into a shared account while tracking month-to-month progress.</p>
-      <div class="control-bar">
-        <label class="control">
-          <span>Currency</span>
-          <input id="currency-symbol" type="text" maxlength="3" value="£" aria-label="Currency symbol" />
+  <main class="tempo-shell">
+    <section class="panel settings-panel">
+      <div class="brand">
+        <span class="brand-tag">TEMPO RHYTHEM</span>
+        <h1>Tempo Rhythem Project</h1>
+        <p>Set the rhythm, choose the bass tone, and let the beat evolve every minute.</p>
+      </div>
+
+      <div class="form-grid">
+        <label class="field-group">
+          <span>Starting Tempo</span>
+          <input id="tempo-start" type="number" min="30" max="220" value="80" />
+          <small>BPM</small>
         </label>
-        <label class="control">
-          <span>Shared %</span>
-          <input id="shared-percentage" type="number" min="0" max="100" value="35" aria-label="Shared contribution percentage" />
+
+        <label class="field-group">
+          <span>Tempo Increment</span>
+          <input id="tempo-step" type="number" min="0" max="20" value="3" step="0.5" />
+          <small>BPM / minute</small>
+        </label>
+
+        <label class="field-group full-width">
+          <span>Main Beat Sound</span>
+          <select id="main-sound">
+            <option value="deep-pulse">Deep Pulse</option>
+            <option value="sub-kick">Sub Kick</option>
+            <option value="thud">Low Thud</option>
+          </select>
+        </label>
+
+        <label class="field-group full-width">
+          <span>Minute Marker Sound</span>
+          <select id="marker-sound">
+            <option value="bass-gong">Bass Gong</option>
+            <option value="low-bell">Low Bell</option>
+            <option value="sub-snap">Sub Snap</option>
+          </select>
         </label>
       </div>
-    </header>
-
-    <section class="grid" id="people-grid">
-            <article class="card person-card" data-person="person1">
-        <div class="person-header">
-          <input class="person-name" value="Alex" aria-label="Name for person 1" />
-        </div>
-        <form class="entry-form" autocomplete="off">
-          <input name="description" type="text" placeholder="Description" required />
-          <input name="amount" type="number" min="0" step="0.01" placeholder="Amount" required />
-          <input type="hidden" name="type" value="income" />
-          <div class="type-buttons">
-            <button type="button" data-entry-type="income" aria-label="Add incoming">+ Incoming</button>
-            <button type="button" data-entry-type="expense" aria-label="Add outgoing">- Outgoing</button>
-          </div>
-        </form>
-        <div class="totals">
-          <button type="button" class="total-card is-toggle" data-total-type="income">
-            <span class="label">Incomings</span>
-            <span class="value" data-field="income-total">&pound;0.00</span>
-          </button>
-          <button type="button" class="total-card is-toggle" data-total-type="expense">
-            <span class="label">Outgoings</span>
-            <span class="value" data-field="expense-total">&pound;0.00</span>
-          </button>
-          <div class="total-card">
-            <span class="label">Net</span>
-            <span class="value" data-field="net-total">&pound;0.00</span>
-          </div>
-          <div class="total-card">
-            <span class="label">Shared deposit</span>
-            <span class="value" data-field="share-total">&pound;0.00</span>
-          </div>
-          <div class="total-card">
-            <span class="label">Balancing transfer</span>
-            <span class="value" data-field="balance-total">&pound;0.00</span>
-          </div>
-          <div class="total-card">
-            <span class="label">Keeps</span>
-            <span class="value" data-field="keep-total">&pound;0.00</span>
-          </div>
-        </div>
-        <div class="detail-panels">
-          <div class="detail-panel" data-detail-type="income">
-            <div class="detail-header">
-              <strong>Incoming items</strong>
-            </div>
-            <div class="detail-list" data-role="detail-income"></div>
-          </div>
-          <div class="detail-panel" data-detail-type="expense">
-            <div class="detail-header">
-              <strong>Outgoing items</strong>
-            </div>
-            <div class="detail-list" data-role="detail-expense"></div>
-          </div>
-        </div>
-      </article>
-
-            <article class="card person-card" data-person="person2">
-        <div class="person-header">
-          <input class="person-name" value="Jordan" aria-label="Name for person 2" />
-        </div>
-        <form class="entry-form" autocomplete="off">
-          <input name="description" type="text" placeholder="Description" required />
-          <input name="amount" type="number" min="0" step="0.01" placeholder="Amount" required />
-          <input type="hidden" name="type" value="income" />
-          <div class="type-buttons">
-            <button type="button" data-entry-type="income" aria-label="Add incoming">+ Incoming</button>
-            <button type="button" data-entry-type="expense" aria-label="Add outgoing">- Outgoing</button>
-          </div>
-        </form>
-        <div class="totals">
-          <button type="button" class="total-card is-toggle" data-total-type="income">
-            <span class="label">Incomings</span>
-            <span class="value" data-field="income-total">&pound;0.00</span>
-          </button>
-          <button type="button" class="total-card is-toggle" data-total-type="expense">
-            <span class="label">Outgoings</span>
-            <span class="value" data-field="expense-total">&pound;0.00</span>
-          </button>
-          <div class="total-card">
-            <span class="label">Net</span>
-            <span class="value" data-field="net-total">&pound;0.00</span>
-          </div>
-          <div class="total-card">
-            <span class="label">Shared deposit</span>
-            <span class="value" data-field="share-total">&pound;0.00</span>
-          </div>
-          <div class="total-card">
-            <span class="label">Balancing transfer</span>
-            <span class="value" data-field="balance-total">&pound;0.00</span>
-          </div>
-          <div class="total-card">
-            <span class="label">Keeps</span>
-            <span class="value" data-field="keep-total">&pound;0.00</span>
-          </div>
-        </div>
-        <div class="detail-panels">
-          <div class="detail-panel" data-detail-type="income">
-            <div class="detail-header">
-              <strong>Incoming items</strong>
-            </div>
-            <div class="detail-list" data-role="detail-income"></div>
-          </div>
-          <div class="detail-panel" data-detail-type="expense">
-            <div class="detail-header">
-              <strong>Outgoing items</strong>
-            </div>
-            <div class="detail-list" data-role="detail-expense"></div>
-          </div>
-        </div>
-      </article>
     </section>
 
-    <section class="card accounts-card">
-      <h2>Accounts</h2>
-      <p class="description">Manage multiple accounts for tax, investments, and savings. Set allocation percentages to distribute shared contributions, and add direct deposits to specific accounts.</p>
-
-      <form id="add-account-form" class="add-form" autocomplete="off">
-        <input name="name" type="text" placeholder="Account name" required />
-        <select name="type">
-          <option value="savings">Savings</option>
-          <option value="investment">Investment</option>
-          <option value="tax">Tax</option>
-          <option value="other">Other</option>
-        </select>
-        <input name="allocation" type="number" min="0" max="100" step="0.01" placeholder="Allocation %" required />
-        <input name="startingBalance" type="number" step="0.01" placeholder="Starting balance" value="0" />
-        <button type="submit">Add Account</button>
-      </form>
-
-      <div class="accounts-grid" id="accounts-grid">
-        <!-- Accounts will be rendered here -->
+    <section class="panel control-panel">
+      <div class="beat-display">
+        <div class="beat-card">
+          <span class="label">Tempo</span>
+          <strong id="tempo-display">80 BPM</strong>
+        </div>
+        <div class="beat-card">
+          <span class="label">Minutes</span>
+          <strong id="elapsed-minutes">0</strong>
+        </div>
       </div>
 
-      <form id="account-direct-form" class="shared-form" autocomplete="off">
-        <select id="direct-account-select" name="account" required>
-          <option value="">Select account</option>
-        </select>
-        <input name="description" type="text" placeholder="Description (e.g. Bonus)" required />
-        <input name="amount" type="number" min="0" step="0.01" placeholder="Amount" required />
-        <input type="hidden" name="type" value="income" />
-        <button type="submit">Add to Account</button>
-      </form>
-    </section>
-
-    <section class="card reporting-card">
-      <h2>Monthly Snapshots</h2>
-      <p class="lead">Capture a snapshot once per month to keep a history of combined nets, equal keeps, and shared deposits. Over time you can chart how the partnership evolves.</p>
-
-      <div class="reporting-actions">
-        <form id="snapshot-form" autocomplete="off">
-          <input id="snapshot-month" type="month" aria-label="Snapshot month" />
-          <button type="submit">Capture snapshot</button>
-        </form>
-        <span class="snapshot-status" data-role="snapshot-status"></span>
+      <div class="center-button">
+        <button id="toggle-button" class="action-button action-start" type="button">Start</button>
       </div>
 
-      <div class="snapshot-chart-wrapper">
-        <canvas id="snapshot-chart" aria-label="Combined earnings by month"></canvas>
+      <div class="status-bar">
+        <span id="rhythm-status">Ready to start the pulse.</span>
       </div>
-
-      <div class="snapshot-list" data-role="snapshot-list"></div>
     </section>
   </main>
 
   <script src="script.js"></script>
-
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
