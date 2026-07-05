@@ -1,5 +1,19 @@
 import { clampPercentage } from './format.js';
-import { normalizeAmount } from './frequency.js';
+import { normalizeAmount, INTERVALS } from './frequency.js';
+
+/**
+ * Applies tax-style bands to an annual amount: each band taxes the slice of
+ * income between `from` and `to` (null = unbounded) at `rate` percent.
+ */
+export function applyBands(annualAmount, bands) {
+  return (bands || []).reduce((total, band) => {
+    const from = Number(band.from) || 0;
+    const to = band.to == null ? Infinity : Number(band.to);
+    const slice = Math.min(annualAmount, to) - from;
+    if (slice <= 0) return total;
+    return total + (slice * (Number(band.rate) || 0)) / 100;
+  }, 0);
+}
 
 /**
  * Sums a person's entries over the selected display interval.
@@ -229,6 +243,9 @@ export function computeAccountFlows(people, accounts, interval = 'month') {
         let amount = 0;
         if (rule.basis === 'percent') {
           amount = (Math.max(0, person.metrics.income) * clampPercentage(Number(rule.value) || 0)) / 100;
+        } else if (rule.basis === 'band') {
+          const annualIncome = Math.max(0, person.metrics.income) * (INTERVALS[interval]?.perYear || 12);
+          amount = normalizeAmount(applyBands(annualIncome, rule.bands), 'yearly', interval);
         } else {
           amount = normalizeAmount(rule.value, rule.frequency || 'monthly', interval);
         }
@@ -242,6 +259,71 @@ export function computeAccountFlows(people, accounts, interval = 'month') {
   });
 
   return { accountInflows, deductionsPerPerson, ruleAmounts };
+}
+
+// HMRC 2025/26 figures. An estimate on gross income (not taxed profit after
+// allowable expenses), so presented in the UI as guidance only.
+export const UK_TAX_PRESETS = {
+  incomeTax: {
+    name: 'Income Tax (est.)',
+    bands: [
+      { from: 12570, to: 50270, rate: 20 },
+      { from: 50270, to: 125140, rate: 40 },
+      { from: 125140, to: null, rate: 45 },
+    ],
+  },
+  class4Ni: {
+    name: 'Class 4 NI (est.)',
+    bands: [
+      { from: 12570, to: 50270, rate: 6 },
+      { from: 50270, to: null, rate: 2 },
+    ],
+  },
+};
+
+/**
+ * Steady-state monthly inflow rate for each account (rules plus, for the
+ * primary account, split contributions), used for projections and goal ETAs.
+ * One-off direct additions are excluded — they aren't a recurring rate.
+ */
+export function computeMonthlyOutlook(people, accounts, splitConfig) {
+  const monthlyPeople = people.map((person) => ({
+    id: person.id,
+    metrics: computeMetrics(person.entries.filter((entry) => entry.frequency !== 'once'), 'month'),
+  }));
+  const flows = computeAccountFlows(monthlyPeople, accounts, 'month');
+  const nets = monthlyPeople.map((person) => {
+    const deductions = flows.deductionsPerPerson[person.id] || 0;
+    return person.metrics.income - person.metrics.expense - deductions;
+  });
+  const allocation = calculateSplit(nets, splitConfig);
+
+  const rates = {};
+  accounts.forEach((account) => {
+    rates[account.id] = (flows.accountInflows[account.id] || 0) +
+      (account.primary ? allocation.shareContributionTotal : 0);
+  });
+
+  const keeps = {};
+  monthlyPeople.forEach((person, index) => {
+    keeps[person.id] = allocation.perPerson[index]?.keep ?? 0;
+  });
+
+  return { rates, keeps };
+}
+
+export function computeMonthlyRates(people, accounts, splitConfig) {
+  return computeMonthlyOutlook(people, accounts, splitConfig).rates;
+}
+
+/**
+ * Months until `target` is reached from `current` at `monthlyRate`.
+ * Returns 0 when already reached, null when it never will be.
+ */
+export function monthsToTarget(current, target, monthlyRate) {
+  if (current >= target) return 0;
+  if (!Number.isFinite(monthlyRate) || monthlyRate <= 0.005) return null;
+  return Math.ceil((target - current) / monthlyRate);
 }
 
 export function computeSharedTotals(allocation, sharedStartingBalance, sharedDirectEntries) {

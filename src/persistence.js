@@ -27,9 +27,31 @@ export function convertLegacyState(legacy) {
  * frequency/category, accounts is an array with the shared pot as the
  * primary account, and the split settings live under `split`.
  */
+/**
+ * v5 adds: addedAt on entries (so one-offs can age out), a scenarios array,
+ * and signed direct-entry amounts on accounts (withdrawals are negative).
+ */
+export function migrateToV5(state) {
+  const v4 = migrateToV4(state);
+  if (!v4) return null;
+  if (v4.version === 5) return v4;
+
+  const stampEntries = (entries) => (entries || []).map((entry) => ({
+    ...entry,
+    addedAt: entry.addedAt || new Date().toISOString(),
+  }));
+
+  return {
+    ...v4,
+    version: 5,
+    people: (v4.people || []).map((person) => ({ ...person, entries: stampEntries(person.entries) })),
+    scenarios: Array.isArray(v4.scenarios) ? v4.scenarios : [],
+  };
+}
+
 export function migrateToV4(state) {
   if (!state || typeof state !== 'object') return null;
-  if (state.version === 4) return state;
+  if (state.version === 4 || state.version === 5) return state;
 
   const people = (Array.isArray(state.people) ? state.people : []).map((person) => ({
     id: person.id,
@@ -83,7 +105,7 @@ export function loadState() {
   if (raw) {
     try {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') return migrateToV4(parsed);
+      if (parsed && typeof parsed === 'object') return migrateToV5(parsed);
     } catch (error) {
       console.error('Failed to restore planner state', error);
     }
@@ -93,7 +115,7 @@ export function loadState() {
   const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY);
   if (!legacyRaw) return null;
   try {
-    return migrateToV4(convertLegacyState(JSON.parse(legacyRaw)));
+    return migrateToV5(convertLegacyState(JSON.parse(legacyRaw)));
   } catch (error) {
     console.error('Failed to migrate legacy planner state', error);
     return null;
@@ -113,6 +135,13 @@ export function exportStateToFile(state) {
   URL.revokeObjectURL(url);
 }
 
+/** Normalizes any supported backup shape (v2..v5, decrypted payloads) to v5. */
+export function normalizeImportedState(parsed) {
+  if (!parsed || typeof parsed !== 'object') return null;
+  const migrated = parsed.currencySymbol ? convertLegacyState(parsed) : parsed;
+  return migrateToV5(migrated);
+}
+
 export function importStateFromFile(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -124,7 +153,7 @@ export function importStateFromFile(file) {
           return;
         }
         const migrated = parsed.currencySymbol ? convertLegacyState(parsed) : parsed;
-        resolve(migrateToV4(migrated));
+        resolve(migrateToV5(migrated));
       } catch (error) {
         reject(new Error('File is not valid JSON.'));
       }
