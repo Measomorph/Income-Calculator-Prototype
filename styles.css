@@ -44,6 +44,64 @@ header {
   gap: 1rem;
 }
 
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  position: relative;
+}
+
+.theme-toggle {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 1px solid var(--card-border);
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.theme-toggle:hover {
+  background: rgba(148, 163, 184, 0.2);
+}
+
+.data-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.data-actions button,
+.file-button {
+  border: 1px solid var(--card-border);
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.data-actions button:hover,
+.file-button:hover {
+  background: rgba(148, 163, 184, 0.2);
+}
+
+.data-status {
+  font-size: 0.85rem;
+  color: var(--success-strong);
+  min-height: 1.2em;
+}
+
 header h1 {
   margin: 0;
   font-size: clamp(2.25rem, 4vw, 3.1rem);
@@ -85,7 +143,8 @@ header p {
   letter-spacing: 0.12em;
 }
 
-.control input {
+.control input,
+.control select {
   width: 5rem;
   padding: 0.45rem 0.75rem;
   border: 1px solid var(--card-border);
@@ -98,11 +157,17 @@ header p {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+.control select {
+  width: auto;
+  text-align: left;
+}
+
 .control input[type='number'] {
   width: 6rem;
 }
 
-.control input:focus {
+.control input:focus,
+.control select:focus {
   border-color: var(--accent-strong);
   box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
 }
@@ -162,6 +227,33 @@ header p {
 .person-name:focus {
   outline: 2px solid var(--accent);
   background: rgba(245, 158, 11, 0.08);
+}
+
+.remove-person {
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  background: rgba(248, 113, 113, 0.12);
+  color: var(--danger);
+  border-radius: 12px;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.remove-person:hover {
+  background: rgba(248, 113, 113, 0.22);
+}
+
+.field-error {
+  margin: -0.75rem 0 0;
+  color: var(--danger);
+  font-size: 0.85rem;
+}
+
+.is-armed {
+  background: rgba(248, 113, 113, 0.9) !important;
+  color: #fff !important;
 }
 
 .entry-form {
@@ -709,6 +801,21 @@ header p {
   font-weight: 500;
 }
 
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: var(--text-subtle);
+}
+
+.chart-legend label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+
 .snapshot-chart-wrapper {
   background: rgba(15, 23, 42, 0.55);
   border: 1px solid rgba(148, 163, 184, 0.16);
@@ -862,5 +969,71 @@ header p {
 
   header p {
     padding: 0 0.5rem;
+  }
+
+  .header-top {
+    flex-direction: column;
+  }
+
+  .theme-toggle {
+    position: static;
+    transform: none;
+  }
+
+  .type-buttons {
+    grid-column: span 2;
+  }
+}
+
+:root[data-theme='light'] {
+  --bg: #f1f5f9;
+  --bg-alt: #e2e8f0;
+  --card-bg: rgba(255, 255, 255, 0.92);
+  --card-border: rgba(15, 23, 42, 0.12);
+  --accent-soft: rgba(245, 158, 11, 0.12);
+  --text: #0f172a;
+  --text-subtle: #475569;
+  --muted-surface: rgba(15, 23, 42, 0.05);
+  --muted-surface-strong: rgba(15, 23, 42, 0.08);
+  --success-strong: #059669;
+  --danger: #dc2626;
+  --shadow: 0 24px 48px -28px rgba(15, 23, 42, 0.2);
+}
+
+:root[data-theme='light'] body {
+  background: radial-gradient(circle at top left, rgba(59, 130, 246, 0.12), transparent 55%), linear-gradient(170deg, var(--bg) 0%, var(--bg-alt) 55%, #f8fafc 100%);
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+    color: #0f172a;
+  }
+
+  .container {
+    max-width: 100%;
+    padding: 0.5rem;
+  }
+
+  .card {
+    box-shadow: none;
+    border: 1px solid #cbd5e1;
+    break-inside: avoid;
+  }
+
+  .card::before {
+    display: none;
+  }
+
+  .snapshot-list,
+  .detail-list,
+  .contribution-list,
+  .direct-list {
+    max-height: none;
+    overflow: visible;
   }
 }
