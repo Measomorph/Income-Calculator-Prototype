@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0d162b" />
   <title>Income & Shared Budget Planner</title>
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
@@ -13,7 +16,17 @@
         <h1>Income & Shared Budget Planner</h1>
         <button id="theme-toggle" type="button" class="theme-toggle no-print" aria-label="Toggle theme"></button>
       </div>
-      <p>Pool both incomes, align your spending power, and route the remainder into a shared account while tracking month-to-month progress.</p>
+      <p>Pool incomes at any pay frequency, route money into the accounts you define, and split what's left the way that suits you.</p>
+
+      <div class="onboarding no-print" data-role="onboarding" hidden>
+        <h2>New here?</h2>
+        <p>Everything runs in your browser — add the people in your household, log income and outgoings at whatever frequency they occur, and the planner routes money into your accounts and splits the rest.</p>
+        <div class="onboarding-actions">
+          <button id="load-demo" type="button">Load example data</button>
+          <button id="dismiss-onboarding" type="button" class="secondary">Start fresh</button>
+        </div>
+      </div>
+
       <div class="control-bar no-print">
         <label class="control">
           <span>Currency</span>
@@ -27,10 +40,30 @@
           </select>
         </label>
         <label class="control">
+          <span>View</span>
+          <select id="stats-interval" aria-label="Statistics interval">
+            <option value="day">Per day</option>
+            <option value="week">Per week</option>
+            <option value="month" selected>Per month</option>
+            <option value="year">Per year</option>
+          </select>
+        </label>
+        <label class="control">
+          <span>Split</span>
+          <select id="split-strategy" aria-label="Split strategy">
+            <option value="equal-keeps">Equal keeps</option>
+            <option value="proportional">Proportional to income</option>
+            <option value="even">50/50 even split</option>
+            <option value="custom">Custom percentages</option>
+          </select>
+        </label>
+        <label class="control" data-role="shared-percentage-control">
           <span>Shared %</span>
           <input id="shared-percentage" type="number" min="0" max="100" value="35" aria-label="Shared contribution percentage" />
         </label>
       </div>
+      <p class="strategy-hint no-print" data-role="strategy-hint"></p>
+
       <div class="data-actions no-print">
         <button id="add-person" type="button">+ Add person</button>
         <button id="export-data" type="button">Export backup</button>
@@ -38,28 +71,46 @@
           Import backup
           <input id="import-data" type="file" accept="application/json" hidden />
         </label>
-        <span class="data-status" data-role="data-status"></span>
+        <span class="data-status" data-role="data-status" role="status" aria-live="polite"></span>
       </div>
     </header>
 
-    <section class="grid" id="people-grid"></section>
+    <datalist id="categories-income"></datalist>
+    <datalist id="categories-expense"></datalist>
+
+    <section class="grid" id="people-grid" aria-label="People"></section>
 
     <template id="person-card-template">
       <article class="card person-card">
         <div class="person-header">
           <input class="person-name" aria-label="Person name" />
+          <label class="custom-share no-print" hidden>
+            Contributes
+            <input type="number" class="custom-share-input" min="0" max="100" step="1" value="0" aria-label="Custom contribution percentage" />
+            % of net
+          </label>
           <button type="button" class="remove-person no-print" data-action="remove-person" aria-label="Remove person">Remove</button>
         </div>
         <form class="entry-form no-print" autocomplete="off">
-          <input name="description" type="text" placeholder="Description" required />
-          <input name="amount" type="number" min="0" step="0.01" placeholder="Amount" required />
+          <input name="description" type="text" placeholder="Description" aria-label="Entry description" required />
+          <input name="amount" type="number" min="0" step="0.01" placeholder="Amount" aria-label="Entry amount" required />
+          <input name="category" type="text" placeholder="Category" aria-label="Entry category" list="categories-income" />
+          <select name="frequency" aria-label="Entry frequency">
+            <option value="once">One-off</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="fortnightly">Fortnightly</option>
+            <option value="monthly" selected>Monthly</option>
+            <option value="quarterly">Quarterly</option>
+            <option value="yearly">Yearly</option>
+          </select>
           <input type="hidden" name="type" value="income" />
           <div class="type-buttons">
             <button type="button" data-entry-type="income" aria-label="Add incoming">+ Incoming</button>
             <button type="button" data-entry-type="expense" aria-label="Add outgoing">- Outgoing</button>
           </div>
         </form>
-        <p class="field-error" data-role="form-error" hidden></p>
+        <p class="field-error" data-role="form-error" role="alert" hidden></p>
         <div class="totals">
           <button type="button" class="total-card is-toggle" data-total-type="income">
             <span class="label">Incomings</span>
@@ -69,6 +120,10 @@
             <span class="label">Outgoings</span>
             <span class="value" data-field="expense-total">£0.00</span>
           </button>
+          <div class="total-card">
+            <span class="label">To accounts</span>
+            <span class="value" data-field="deduction-total">£0.00</span>
+          </div>
           <div class="total-card">
             <span class="label">Net</span>
             <span class="value" data-field="net-total">£0.00</span>
@@ -88,95 +143,133 @@
         </div>
         <div class="detail-panels">
           <div class="detail-panel" data-detail-type="income">
-            <div class="detail-header">
-              <strong>Incoming items</strong>
-            </div>
+            <div class="detail-header"><strong>Incoming items</strong></div>
             <div class="detail-list" data-role="detail-income"></div>
           </div>
           <div class="detail-panel" data-detail-type="expense">
-            <div class="detail-header">
-              <strong>Outgoing items</strong>
-            </div>
+            <div class="detail-header"><strong>Outgoing items</strong></div>
             <div class="detail-list" data-role="detail-expense"></div>
           </div>
+        </div>
+        <div class="goals-block">
+          <div class="detail-header"><strong>Personal goals</strong></div>
+          <div class="goals-list" data-role="person-goals"></div>
+          <form class="goal-form no-print" data-role="person-goal-form" autocomplete="off">
+            <input name="goal-name" type="text" placeholder="Goal name" aria-label="Goal name" required />
+            <input name="goal-target" type="number" min="0" step="0.01" placeholder="Target" aria-label="Goal target amount" required />
+            <button type="submit">Add goal</button>
+          </form>
         </div>
       </article>
     </template>
 
-    <section class="card shared-card">
-      <h2>Shared Account</h2>
-      <p class="description">Choose a shared percentage from the combined net, give each person an equal keep, then send the remainder into the pot. Adjust the starting balance to reflect what you already have set aside.</p>
-
-      <div class="shared-base no-print">
-        <label>
-          Starting shared balance
-          <input id="shared-starting-balance" type="number" step="0.01" value="0" />
-        </label>
-        <span class="pill" data-field="shared-base-pill">£0.00</span>
+    <section class="accounts-section" aria-label="Accounts">
+      <div class="section-heading">
+        <h2>Accounts</h2>
+        <button id="add-account" type="button" class="no-print">+ Add account</button>
       </div>
-
-      <form id="shared-direct-form" class="shared-form no-print" autocomplete="off">
-        <input name="description" type="text" placeholder="Description (e.g. Bonus)" required />
-        <input name="amount" type="number" min="0" step="0.01" placeholder="Amount" required />
-        <input type="hidden" name="type" value="income" />
-        <button type="submit">Add to Shared</button>
-      </form>
-      <p class="field-error" data-role="shared-form-error" hidden></p>
-
-      <div class="shared-breakdown">
-        <div class="breakdown-card">
-          <div class="breakdown-heading">
-            <strong>Starting Balance</strong>
-            <span class="pill" data-field="shared-base-display">£0.00</span>
-          </div>
-          <p style="margin:0;font-size:0.9rem;color:var(--text-subtle);">Included in the shared total alongside live contributions and direct additions.</p>
-        </div>
-        <div class="breakdown-card">
-          <div class="breakdown-heading">
-            <strong>Contributions</strong>
-            <div class="pill-group">
-              <span class="pill" data-field="shared-contribution-total">£0.00</span>
-              <span class="pill" data-field="shared-percentage-pill">35%</span>
-            </div>
-          </div>
-          <div class="contribution-list" data-role="shared-contributions"></div>
-        </div>
-        <div class="breakdown-card">
-          <div class="breakdown-heading">
-            <strong>Direct Additions</strong>
-            <span class="pill" data-field="shared-direct-total">£0.00</span>
-          </div>
-          <div class="direct-list" data-role="shared-direct"></div>
-        </div>
-      </div>
-
-      <div class="shared-total">
-        <div>
-          <span>Total in shared account</span>
-          <small>Base + contributions + direct additions</small>
-        </div>
-        <span data-field="shared-total">£0.00</span>
-      </div>
+      <p class="lead">Create the pots your money should flow into — a shared account, tax set-aside, pension, savings — and give each one rules like “20% of Alex's income” or a fixed amount per week.</p>
+      <div class="grid" id="accounts-grid"></div>
     </section>
 
+    <template id="account-card-template">
+      <article class="card account-card">
+        <div class="person-header">
+          <input class="account-name" aria-label="Account name" />
+          <button type="button" class="remove-person no-print" data-action="remove-account" aria-label="Remove account">Remove</button>
+        </div>
+        <p class="primary-note" data-role="primary-note" hidden>Receives the split contributions from everyone's net.</p>
+
+        <div class="shared-base no-print">
+          <label>
+            Starting balance
+            <input type="number" step="0.01" value="0" class="account-starting" aria-label="Account starting balance" />
+          </label>
+        </div>
+
+        <div class="rules-block">
+          <div class="detail-header"><strong>Allocation rules</strong></div>
+          <div class="rules-list" data-role="rules-list"></div>
+          <form class="rule-form no-print" data-role="rule-form" autocomplete="off">
+            <select name="rule-person" aria-label="Rule applies to"></select>
+            <select name="rule-basis" aria-label="Rule type">
+              <option value="percent">% of income</option>
+              <option value="fixed">Fixed amount</option>
+            </select>
+            <input name="rule-value" type="number" min="0" step="0.01" placeholder="Value" aria-label="Rule value" required />
+            <select name="rule-frequency" aria-label="Fixed amount frequency" hidden>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="fortnightly">Fortnightly</option>
+              <option value="monthly" selected>Monthly</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="yearly">Yearly</option>
+            </select>
+            <button type="submit">Add rule</button>
+          </form>
+        </div>
+
+        <div class="contributions-block" data-role="contributions-block" hidden>
+          <div class="detail-header">
+            <strong>Split contributions</strong>
+            <span class="pill" data-field="contribution-total">£0.00</span>
+          </div>
+          <div class="contribution-list" data-role="contributions"></div>
+        </div>
+
+        <form class="shared-form no-print" data-role="direct-form" autocomplete="off">
+          <input name="description" type="text" placeholder="Direct addition (e.g. Bonus)" aria-label="Direct addition description" required />
+          <input name="amount" type="number" min="0" step="0.01" placeholder="Amount" aria-label="Direct addition amount" required />
+          <button type="submit">Add</button>
+        </form>
+        <div class="direct-list" data-role="direct-list"></div>
+
+        <div class="goals-block">
+          <div class="detail-header"><strong>Goals</strong></div>
+          <div class="goals-list" data-role="account-goals"></div>
+          <form class="goal-form no-print" data-role="account-goal-form" autocomplete="off">
+            <input name="goal-name" type="text" placeholder="Goal name" aria-label="Goal name" required />
+            <input name="goal-target" type="number" min="0" step="0.01" placeholder="Target" aria-label="Goal target amount" required />
+            <button type="submit">Add goal</button>
+          </form>
+        </div>
+
+        <div class="shared-total">
+          <div>
+            <span>Projected balance</span>
+            <small data-field="balance-caption">Starting + one month of inflows</small>
+          </div>
+          <span data-field="account-total">£0.00</span>
+        </div>
+      </article>
+    </template>
+
     <section class="card reporting-card">
-      <h2>Monthly Snapshots</h2>
-      <p class="lead">Capture a snapshot once per month to keep a history of combined nets, equal keeps, and shared deposits. Over time you can chart how the partnership evolves.</p>
+      <h2>Statistics &amp; Snapshots</h2>
+      <p class="lead">Totals above follow the view interval you pick (per day, week, month, or year). Capture snapshots to build a history and chart how things evolve.</p>
+
+      <div class="breakdown-card category-breakdown">
+        <div class="breakdown-heading">
+          <strong>Spending by category</strong>
+          <span class="pill" data-field="category-interval-pill">per month</span>
+        </div>
+        <div class="category-list" data-role="category-breakdown"></div>
+      </div>
 
       <div class="reporting-actions no-print">
         <form id="snapshot-form" autocomplete="off">
           <input id="snapshot-month" type="month" aria-label="Snapshot month" />
           <button type="submit">Capture snapshot</button>
         </form>
-        <span class="snapshot-status" data-role="snapshot-status"></span>
+        <span class="snapshot-status" data-role="snapshot-status" role="status" aria-live="polite"></span>
         <button id="print-snapshots" type="button">🖨 Print / Save as PDF</button>
       </div>
 
       <div class="chart-legend no-print" data-role="chart-legend">
-        <label><input type="checkbox" data-series="net" checked /> Net</label>
-        <label><input type="checkbox" data-series="income" /> Income</label>
-        <label><input type="checkbox" data-series="expense" /> Expense</label>
-        <label><input type="checkbox" data-series="shared" checked /> Shared total</label>
+        <label><input type="checkbox" data-series="net" checked /> <span class="legend-swatch" data-swatch="net"></span> Net</label>
+        <label><input type="checkbox" data-series="income" /> <span class="legend-swatch" data-swatch="income"></span> Income</label>
+        <label><input type="checkbox" data-series="expense" /> <span class="legend-swatch" data-swatch="expense"></span> Expense</label>
+        <label><input type="checkbox" data-series="shared" checked /> <span class="legend-swatch" data-swatch="shared"></span> Shared total</label>
       </div>
 
       <div class="snapshot-chart-wrapper no-print">
@@ -185,6 +278,10 @@
 
       <div class="snapshot-list" data-role="snapshot-list"></div>
     </section>
+
+    <footer class="app-footer">
+      <p><strong>Your data stays on this device.</strong> Everything is stored locally in your browser — nothing is sent to any server, and there are no accounts or tracking. Use “Export backup” to keep a copy outside the browser.</p>
+    </footer>
   </main>
 
   <script type="module" src="/src/main.js"></script>

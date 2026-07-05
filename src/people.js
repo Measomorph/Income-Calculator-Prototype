@@ -1,12 +1,14 @@
 import { computeMetrics } from './calculations.js';
+import { FREQUENCIES } from './frequency.js';
 import { createId } from './format.js';
 import { armForConfirm } from './confirm.js';
+import { createGoalsView } from './goals.js';
 
 /**
  * Manages the dynamic list of person cards: creation from a <template>,
- * per-person rendering, and add/remove/entry interactions.
+ * per-person rendering, and add/remove/entry/goal interactions.
  */
-export function createPeopleController({ grid, template, formatCurrency, onChange }) {
+export function createPeopleController({ grid, template, formatCurrency, getInterval, onChange }) {
   const people = [];
 
   function updateValueState(element, amount) {
@@ -36,16 +38,13 @@ export function createPeopleController({ grid, template, formatCurrency, onChang
   }
 
   function render(person) {
-    person.metrics = computeMetrics(person.entries);
+    person.metrics = computeMetrics(person.entries, getInterval());
 
     person.totalsEls.income.textContent = formatCurrency(person.metrics.income);
     updateValueState(person.totalsEls.income, person.metrics.income);
 
     person.totalsEls.expense.textContent = formatCurrency(-person.metrics.expense);
     updateValueState(person.totalsEls.expense, -person.metrics.expense);
-
-    person.totalsEls.net.textContent = formatCurrency(person.metrics.net);
-    updateValueState(person.totalsEls.net, person.metrics.net);
 
     ['income', 'expense'].forEach((type) => {
       const listEl = person.detailLists[type];
@@ -70,9 +69,19 @@ export function createPeopleController({ grid, template, formatCurrency, onChang
           item.className = 'detail-item';
           item.dataset.entryId = entry.id;
 
+          const info = document.createElement('div');
+          info.className = 'detail-info';
+
           const description = document.createElement('span');
           description.className = 'detail-description';
           description.textContent = entry.description;
+          info.appendChild(description);
+
+          const meta = document.createElement('span');
+          meta.className = 'detail-meta';
+          const freqLabel = (FREQUENCIES[entry.frequency] || FREQUENCIES.once).label;
+          meta.textContent = `${entry.category || 'Other'} · ${freqLabel}`;
+          info.appendChild(meta);
 
           const amount = document.createElement('span');
           amount.className = 'detail-amount';
@@ -84,7 +93,7 @@ export function createPeopleController({ grid, template, formatCurrency, onChang
           removeButton.dataset.action = 'remove-entry';
           removeButton.textContent = 'Remove';
 
-          item.append(description, amount, removeButton);
+          item.append(info, amount, removeButton);
           listEl.appendChild(item);
         });
       }
@@ -95,6 +104,8 @@ export function createPeopleController({ grid, template, formatCurrency, onChang
       panel.classList.toggle('is-open', shouldOpen);
       toggle.classList.toggle('is-open', shouldOpen);
     });
+
+    person.goalsView.render();
   }
 
   function renderAll() {
@@ -105,6 +116,12 @@ export function createPeopleController({ grid, template, formatCurrency, onChang
     const canRemove = people.length > 1;
     people.forEach((person) => {
       person.removeButton.hidden = !canRemove;
+    });
+  }
+
+  function setCustomShareVisible(visible) {
+    people.forEach((person) => {
+      person.customShareLabel.hidden = !visible;
     });
   }
 
@@ -122,10 +139,14 @@ export function createPeopleController({ grid, template, formatCurrency, onChang
     const card = fragment.querySelector('.person-card');
     const nameInput = card.querySelector('.person-name');
     const removeButton = card.querySelector('[data-action="remove-person"]');
+    const customShareLabel = card.querySelector('.custom-share');
+    const customShareInput = card.querySelector('.custom-share-input');
     const form = card.querySelector('.entry-form');
     const typeInput = form.querySelector('input[name="type"]');
     const descriptionInput = form.querySelector('[name="description"]');
     const amountInput = form.querySelector('[name="amount"]');
+    const categoryInput = form.querySelector('[name="category"]');
+    const frequencySelect = form.querySelector('[name="frequency"]');
     const formError = card.querySelector('[data-role="form-error"]');
 
     const person = {
@@ -133,6 +154,8 @@ export function createPeopleController({ grid, template, formatCurrency, onChang
       card,
       nameInput,
       removeButton,
+      customShareLabel,
+      customShareInput,
       form,
       formError,
       typeInput,
@@ -155,17 +178,33 @@ export function createPeopleController({ grid, template, formatCurrency, onChang
       totalsEls: {
         income: card.querySelector('[data-field="income-total"]'),
         expense: card.querySelector('[data-field="expense-total"]'),
+        deduction: card.querySelector('[data-field="deduction-total"]'),
         net: card.querySelector('[data-field="net-total"]'),
         share: card.querySelector('[data-field="share-total"]'),
         balance: card.querySelector('[data-field="balance-total"]'),
         keep: card.querySelector('[data-field="keep-total"]'),
       },
       entries: (data.entries || []).map((entry) => ({ ...entry })),
-      metrics: { income: 0, expense: 0, net: 0 },
+      goals: (data.goals || []).map((goal) => ({ ...goal })),
+      metrics: { income: 0, expense: 0, net: 0, byCategory: { income: {}, expense: {} } },
       detailState: { open: null },
     };
 
     nameInput.value = data.name || '';
+    customShareInput.value = String(data.customShare ?? 0);
+
+    person.goalsView = createGoalsView({
+      container: card.querySelector('[data-role="person-goals"]'),
+      form: card.querySelector('[data-role="person-goal-form"]'),
+      formatCurrency,
+      getGoals: () => person.goals,
+      getProgress: (goal) => Number(goal.saved) || 0,
+      onChange,
+      onSavedEdit: (goal, value) => {
+        goal.saved = value;
+        onChange();
+      },
+    });
 
     const ensureFocus = () => descriptionInput?.focus();
 
@@ -178,6 +217,11 @@ export function createPeopleController({ grid, template, formatCurrency, onChang
       }
       person.detailState.open = person.detailState.open === type ? null : type;
       render(person);
+    };
+
+    const syncCategoryList = () => {
+      const type = person.typeInput?.value === 'expense' ? 'expense' : 'income';
+      categoryInput.setAttribute('list', `categories-${type}`);
     };
 
     const handleAdd = (type) => {
@@ -202,25 +246,31 @@ export function createPeopleController({ grid, template, formatCurrency, onChang
         description,
         amount: Math.abs(amountValue),
         type,
+        category: (categoryInput?.value || '').trim() || 'Other',
+        frequency: frequencySelect?.value || 'monthly',
       });
 
       person.detailState.open = type;
+      const keepFrequency = frequencySelect?.value;
       person.form.reset();
+      if (frequencySelect && keepFrequency) frequencySelect.value = keepFrequency;
       if (person.typeInput) person.typeInput.value = type;
+      syncCategoryList();
       ensureFocus();
-      render(person);
       onChange();
     };
 
     if (person.typeButtons.income) {
       person.typeButtons.income.addEventListener('click', () => {
         if (person.typeInput) person.typeInput.value = 'income';
+        syncCategoryList();
         handleAdd('income');
       });
     }
     if (person.typeButtons.expense) {
       person.typeButtons.expense.addEventListener('click', () => {
         if (person.typeInput) person.typeInput.value = 'expense';
+        syncCategoryList();
         handleAdd('expense');
       });
     }
@@ -247,7 +297,6 @@ export function createPeopleController({ grid, template, formatCurrency, onChang
               if (!person.entries.some((entry) => entry.type === typeKey)) {
                 person.detailState.open = null;
               }
-              render(person);
               onChange();
             },
           });
@@ -265,6 +314,8 @@ export function createPeopleController({ grid, template, formatCurrency, onChang
       showFormError(person, '');
       onChange();
     });
+
+    person.customShareInput.addEventListener('input', onChange);
 
     person.removeButton.addEventListener('click', () => {
       armForConfirm(person.removeButton, {
@@ -284,5 +335,5 @@ export function createPeopleController({ grid, template, formatCurrency, onChang
     people.splice(0, people.length).forEach((person) => person.card.remove());
   }
 
-  return { people, addPerson, removePerson, render, renderAll, clear };
+  return { people, addPerson, removePerson, render, renderAll, clear, setCustomShareVisible };
 }

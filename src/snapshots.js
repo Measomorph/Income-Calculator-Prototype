@@ -1,12 +1,19 @@
 import { createId, formatMonthLabel, formatTimestamp } from './format.js';
 import { armForConfirm } from './confirm.js';
 
+// Okabe-Ito colorblind-safe palette, plus a dash pattern per series so the
+// lines stay distinguishable without relying on color alone.
 const SERIES = {
-  net: { label: 'Net', color: '#fbbf24', getValue: (s) => s.overall?.net ?? 0 },
-  income: { label: 'Income', color: '#22d3ee', getValue: (s) => s.overall?.income ?? 0 },
-  expense: { label: 'Expense', color: '#f87171', getValue: (s) => -(s.overall?.expense ?? 0) },
-  shared: { label: 'Shared total', color: '#3b82f6', getValue: (s) => s.shared?.total ?? 0 },
+  net: { label: 'Net', color: '#E69F00', dash: [], getValue: (s) => s.overall?.net ?? 0 },
+  income: { label: 'Income', color: '#0072B2', dash: [8, 4], getValue: (s) => s.overall?.income ?? 0 },
+  expense: { label: 'Expense', color: '#D55E00', dash: [2, 4], getValue: (s) => -(s.overall?.expense ?? 0) },
+  shared: { label: 'Shared total', color: '#009E73', dash: [8, 4, 2, 4], getValue: (s) => s.shared?.total ?? 0 },
 };
+
+function cssVar(name, fallback) {
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return value || fallback;
+}
 
 export function createSnapshotsController({
   snapshotForm,
@@ -17,8 +24,9 @@ export function createSnapshotsController({
   chartLegend,
   formatCurrency,
   getPeople,
-  getSharedAllocation,
-  getSharedTotals,
+  getAllocation,
+  getPrimaryAccount,
+  getInterval,
   onChange,
 }) {
   const monthlySnapshots = [];
@@ -43,8 +51,8 @@ export function createSnapshotsController({
 
   function buildSnapshotPayload(monthKey) {
     const people = getPeople();
-    const allocation = getSharedAllocation();
-    const sharedTotals = getSharedTotals();
+    const allocation = getAllocation();
+    const primary = getPrimaryAccount();
     const overallIncome = people.reduce((sum, person) => sum + person.metrics.income, 0);
     const overallExpense = people.reduce((sum, person) => sum + person.metrics.expense, 0);
 
@@ -52,7 +60,9 @@ export function createSnapshotsController({
       id: createId(),
       month: monthKey,
       capturedAt: new Date().toISOString(),
+      interval: getInterval(),
       allocation: {
+        strategy: allocation?.strategy ?? 'equal-keeps',
         sharePercentage: allocation?.sharePercentage ?? 0,
         keepPerPerson: allocation?.keepPerPerson ?? 0,
       },
@@ -61,7 +71,7 @@ export function createSnapshotsController({
         return {
           id: person.id,
           name: person.nameInput.value.trim() || `Person ${index + 1}`,
-          metrics: { ...person.metrics },
+          metrics: { income: person.metrics.income, expense: person.metrics.expense, net: person.metrics.net },
           allocation: {
             keep: alloc.keep,
             shareContribution: alloc.shareContribution,
@@ -70,15 +80,12 @@ export function createSnapshotsController({
         };
       }),
       shared: {
-        startingBalance: sharedTotals.startingBalance,
-        contributionTotal: sharedTotals.contributionTotal,
-        directTotal: sharedTotals.directTotal,
-        total: sharedTotals.total,
+        total: primary?.projectedBalance ?? 0,
       },
       overall: {
         income: overallIncome,
         expense: overallExpense,
-        net: allocation?.combinedNet ?? 0,
+        net: allocation?.combinedNet ?? (overallIncome - overallExpense),
       },
     };
   }
@@ -155,13 +162,18 @@ export function createSnapshotsController({
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, width, height);
 
-    ctx.fillStyle = 'rgba(148, 163, 184, 0.15)';
+    const chartBg = cssVar('--chart-bg', 'rgba(148, 163, 184, 0.15)');
+    const chartText = cssVar('--chart-text', '#94a3b8');
+    const chartGrid = cssVar('--chart-grid', 'rgba(148, 163, 184, 0.4)');
+    const pointOutline = cssVar('--chart-point-outline', '#0f172a');
+
+    ctx.fillStyle = chartBg;
     ctx.fillRect(0, 0, width, height);
 
     const seriesKeys = Object.keys(SERIES).filter((key) => activeSeries.has(key));
 
     if (!data.length || seriesKeys.length === 0) {
-      ctx.fillStyle = '#94a3b8';
+      ctx.fillStyle = chartText;
       ctx.font = '14px "Segoe UI", sans-serif';
       ctx.fillText(
         !data.length ? 'Snapshots will render here once captured.' : 'Select at least one series to plot.',
@@ -190,7 +202,7 @@ export function createSnapshotsController({
       return padding.top + (1 - normalized) * (height - padding.top - padding.bottom);
     }
 
-    ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+    ctx.strokeStyle = chartGrid;
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 6]);
     ctx.beginPath();
@@ -206,6 +218,7 @@ export function createSnapshotsController({
 
       ctx.strokeStyle = config.color;
       ctx.lineWidth = 2.5;
+      ctx.setLineDash(config.dash);
       ctx.beginPath();
       values.forEach((value, index) => {
         const x = xForIndex(index);
@@ -217,6 +230,7 @@ export function createSnapshotsController({
         }
       });
       ctx.stroke();
+      ctx.setLineDash([]);
 
       values.forEach((value, index) => {
         const x = xForIndex(index);
@@ -225,12 +239,12 @@ export function createSnapshotsController({
         ctx.arc(x, y, 4, 0, Math.PI * 2);
         ctx.fillStyle = config.color;
         ctx.fill();
-        ctx.strokeStyle = '#0f172a';
+        ctx.strokeStyle = pointOutline;
         ctx.stroke();
       });
     });
 
-    ctx.fillStyle = '#cbd5f5';
+    ctx.fillStyle = chartText;
     ctx.font = '12px "Segoe UI", sans-serif';
     ctx.textAlign = 'center';
     months.forEach((month, index) => {
@@ -248,6 +262,10 @@ export function createSnapshotsController({
   });
 
   if (chartLegend) {
+    chartLegend.querySelectorAll('.legend-swatch').forEach((swatch) => {
+      const config = SERIES[swatch.dataset.swatch];
+      if (config) swatch.style.background = config.color;
+    });
     chartLegend.querySelectorAll('input[type="checkbox"][data-series]').forEach((checkbox) => {
       checkbox.addEventListener('change', () => {
         const key = checkbox.dataset.series;
@@ -317,5 +335,5 @@ export function createSnapshotsController({
 
   initializeSnapshotMonth();
 
-  return { render, getState, setState };
+  return { render, getState, setState, redrawChart: () => drawChart(lastChartData) };
 }

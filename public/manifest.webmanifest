@@ -1,0 +1,14 @@
+{
+  "name": "Income & Shared Budget Planner",
+  "short_name": "Budget Planner",
+  "description": "Pool incomes at any pay frequency, route money into the accounts you define, and split what's left the way that suits you. All data stays on your device.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d162b",
+  "theme_color": "#0d162b",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
