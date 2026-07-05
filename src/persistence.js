@@ -21,6 +21,55 @@ export function convertLegacyState(legacy) {
   };
 }
 
+/**
+ * Upgrades a v3 payload (single shared account, monthly-only entries,
+ * one global shared percentage) to the v4 shape: entries carry
+ * frequency/category, accounts is an array with the shared pot as the
+ * primary account, and the split settings live under `split`.
+ */
+export function migrateToV4(state) {
+  if (!state || typeof state !== 'object') return null;
+  if (state.version === 4) return state;
+
+  const people = (Array.isArray(state.people) ? state.people : []).map((person) => ({
+    id: person.id,
+    name: person.name,
+    goals: Array.isArray(person.goals) ? person.goals : [],
+    entries: (Array.isArray(person.entries) ? person.entries : []).map((entry) => ({
+      ...entry,
+      frequency: entry.frequency || 'monthly',
+      category: entry.category || 'Other',
+    })),
+  }));
+
+  const shared = state.shared || {};
+  const accounts = Array.isArray(state.accounts) ? state.accounts : [
+    {
+      id: 'shared',
+      name: 'Shared Account',
+      primary: true,
+      startingBalance: Number(shared.startingBalance) || 0,
+      directEntries: Array.isArray(shared.directEntries) ? shared.directEntries : [],
+      rules: [],
+      goals: [],
+    },
+  ];
+
+  return {
+    version: 4,
+    currencyCode: state.currencyCode || 'GBP',
+    interval: state.interval || 'month',
+    split: state.split || {
+      strategy: 'equal-keeps',
+      sharedPercentage: Number.isFinite(Number(state.sharedPercentage)) ? Number(state.sharedPercentage) : 35,
+      customShares: {},
+    },
+    people,
+    accounts,
+    snapshots: Array.isArray(state.snapshots) ? state.snapshots : [],
+  };
+}
+
 export function saveState(state) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -34,7 +83,7 @@ export function loadState() {
   if (raw) {
     try {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') return parsed;
+      if (parsed && typeof parsed === 'object') return migrateToV4(parsed);
     } catch (error) {
       console.error('Failed to restore planner state', error);
     }
@@ -44,7 +93,7 @@ export function loadState() {
   const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY);
   if (!legacyRaw) return null;
   try {
-    return convertLegacyState(JSON.parse(legacyRaw));
+    return migrateToV4(convertLegacyState(JSON.parse(legacyRaw)));
   } catch (error) {
     console.error('Failed to migrate legacy planner state', error);
     return null;
@@ -74,7 +123,8 @@ export function importStateFromFile(file) {
           reject(new Error('File does not contain a valid backup.'));
           return;
         }
-        resolve(parsed);
+        const migrated = parsed.currencySymbol ? convertLegacyState(parsed) : parsed;
+        resolve(migrateToV4(migrated));
       } catch (error) {
         reject(new Error('File is not valid JSON.'));
       }

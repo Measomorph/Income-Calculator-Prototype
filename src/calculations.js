@@ -1,36 +1,73 @@
 import { clampPercentage } from './format.js';
-
-export function computeMetrics(entries) {
-  const income = entries
-    .filter((entry) => entry.type === 'income')
-    .reduce((sum, entry) => sum + entry.amount, 0);
-
-  const expense = entries
-    .filter((entry) => entry.type === 'expense')
-    .reduce((sum, entry) => sum + entry.amount, 0);
-
-  return { income, expense, net: income - expense };
-}
+import { normalizeAmount } from './frequency.js';
 
 /**
- * @param {Array<{ net: number }>} peopleMetrics - one entry per person, containing at least { net }
- * @param {number} rawSharePercentage
+ * Sums a person's entries over the selected display interval.
+ * Returns income/expense/net plus per-category totals.
  */
-export function calculateAllocations(peopleMetrics, rawSharePercentage) {
-  const sharePercentage = clampPercentage(
-    Number.isFinite(Number(rawSharePercentage)) ? Number(rawSharePercentage) : 0
-  );
+export function computeMetrics(entries, interval = 'month') {
+  const metrics = { income: 0, expense: 0, net: 0, byCategory: { income: {}, expense: {} } };
 
-  const combinedNet = peopleMetrics.reduce((sum, person) => sum + person.net, 0);
+  entries.forEach((entry) => {
+    const amount = normalizeAmount(entry.amount, entry.frequency, interval);
+    const type = entry.type === 'expense' ? 'expense' : 'income';
+    metrics[type] += amount;
+    const category = (entry.category || 'Other').trim() || 'Other';
+    metrics.byCategory[type][category] = (metrics.byCategory[type][category] || 0) + amount;
+  });
+
+  metrics.net = metrics.income - metrics.expense;
+  return metrics;
+}
+
+export const SPLIT_STRATEGIES = {
+  'equal-keeps': {
+    label: 'Equal keeps',
+    description: 'Everyone keeps the same amount; the rest goes to the shared pot, with balancing transfers between partners.',
+    usesSharedPercentage: true,
+  },
+  proportional: {
+    label: 'Proportional to income',
+    description: 'Each person contributes to the shared pot in proportion to their net income.',
+    usesSharedPercentage: true,
+  },
+  even: {
+    label: '50/50 even split',
+    description: 'Everyone contributes the same amount to the shared pot, regardless of income.',
+    usesSharedPercentage: true,
+  },
+  custom: {
+    label: 'Custom percentages',
+    description: 'Each person contributes their own chosen percentage of their net.',
+    usesSharedPercentage: false,
+  },
+};
+
+function emptyAllocation(nets, sharePercentage) {
+  return {
+    strategy: 'equal-keeps',
+    sharePercentage,
+    combinedNet: nets.reduce((sum, n) => sum + n, 0),
+    keepPerPerson: 0,
+    shareContributionTotal: 0,
+    perPerson: nets.map((net) => ({
+      shareContribution: 0,
+      keep: net,
+      balancingTransfer: 0,
+    })),
+  };
+}
+
+function equalKeeps(nets, sharePercentage) {
+  const combinedNet = nets.reduce((sum, net) => sum + net, 0);
   const positiveCombinedNet = combinedNet > 0 ? combinedNet : 0;
   const desiredShareTarget = (positiveCombinedNet * sharePercentage) / 100;
   const keepPool = combinedNet - desiredShareTarget;
-  const keepPerPerson = peopleMetrics.length > 0 ? keepPool / peopleMetrics.length : 0;
+  const keepPerPerson = nets.length > 0 ? keepPool / nets.length : 0;
 
-  const perPerson = peopleMetrics.map((person) => {
-    const rawContribution = person.net - keepPerPerson;
+  const perPerson = nets.map((net) => {
+    const rawContribution = net - keepPerPerson;
     return {
-      rawContribution,
       positive: Math.max(0, rawContribution),
       deficit: Math.max(0, -rawContribution),
       shareContribution: 0,
@@ -48,26 +85,163 @@ export function calculateAllocations(peopleMetrics, rawSharePercentage) {
   perPerson.forEach((item) => {
     if (item.positive > 0) {
       item.shareContribution = item.positive * ratio;
-      const usedForBalancing = item.positive - item.shareContribution;
-      item.balancingTransfer = -usedForBalancing;
+      item.balancingTransfer = -(item.positive - item.shareContribution);
     } else if (item.deficit > 0) {
-      item.shareContribution = 0;
       item.balancingTransfer = item.deficit;
-    } else {
-      item.shareContribution = 0;
-      item.balancingTransfer = 0;
     }
+    delete item.positive;
+    delete item.deficit;
   });
 
-  const shareContributionTotal = perPerson.reduce((sum, item) => sum + item.shareContribution, 0);
-
   return {
+    strategy: 'equal-keeps',
     sharePercentage,
     combinedNet,
     keepPerPerson,
-    shareContributionTotal,
+    shareContributionTotal: perPerson.reduce((sum, item) => sum + item.shareContribution, 0),
     perPerson,
   };
+}
+
+function proportional(nets, sharePercentage) {
+  const combinedNet = nets.reduce((sum, net) => sum + net, 0);
+  const positiveCombinedNet = Math.max(0, combinedNet);
+  const totalPositive = nets.reduce((sum, net) => sum + Math.max(0, net), 0);
+  const target = Math.min((positiveCombinedNet * sharePercentage) / 100, totalPositive);
+
+  const perPerson = nets.map((net) => {
+    const positive = Math.max(0, net);
+    const shareContribution = totalPositive > 0 ? (target * positive) / totalPositive : 0;
+    return {
+      shareContribution,
+      keep: net - shareContribution,
+      balancingTransfer: 0,
+    };
+  });
+
+  return {
+    strategy: 'proportional',
+    sharePercentage,
+    combinedNet,
+    keepPerPerson: 0,
+    shareContributionTotal: perPerson.reduce((sum, item) => sum + item.shareContribution, 0),
+    perPerson,
+  };
+}
+
+function evenSplit(nets, sharePercentage) {
+  const combinedNet = nets.reduce((sum, net) => sum + net, 0);
+  const positiveCombinedNet = Math.max(0, combinedNet);
+  const target = (positiveCombinedNet * sharePercentage) / 100;
+  const perHead = nets.length > 0 ? target / nets.length : 0;
+
+  const perPerson = nets.map((net) => {
+    const shareContribution = Math.min(perHead, Math.max(0, net));
+    return {
+      shareContribution,
+      keep: net - shareContribution,
+      balancingTransfer: 0,
+      shortfall: Math.max(0, perHead - shareContribution),
+    };
+  });
+
+  return {
+    strategy: 'even',
+    sharePercentage,
+    combinedNet,
+    keepPerPerson: 0,
+    shareContributionTotal: perPerson.reduce((sum, item) => sum + item.shareContribution, 0),
+    perPerson,
+  };
+}
+
+function customSplit(nets, customShares) {
+  const combinedNet = nets.reduce((sum, net) => sum + net, 0);
+
+  const perPerson = nets.map((net, index) => {
+    const pct = clampPercentage(Number(customShares?.[index]) || 0);
+    const shareContribution = Math.max(0, net) * (pct / 100);
+    return {
+      shareContribution,
+      keep: net - shareContribution,
+      balancingTransfer: 0,
+      customPercentage: pct,
+    };
+  });
+
+  return {
+    strategy: 'custom',
+    sharePercentage: null,
+    combinedNet,
+    keepPerPerson: 0,
+    shareContributionTotal: perPerson.reduce((sum, item) => sum + item.shareContribution, 0),
+    perPerson,
+  };
+}
+
+/**
+ * @param {number[]} nets - one net figure per person (after account-rule deductions)
+ * @param {{ strategy: string, sharedPercentage?: number, customShares?: number[] }} config
+ */
+export function calculateSplit(nets, config = {}) {
+  const sharePercentage = clampPercentage(
+    Number.isFinite(Number(config.sharedPercentage)) ? Number(config.sharedPercentage) : 0
+  );
+  if (nets.length === 0) return emptyAllocation(nets, sharePercentage);
+
+  switch (config.strategy) {
+    case 'proportional':
+      return proportional(nets, sharePercentage);
+    case 'even':
+      return evenSplit(nets, sharePercentage);
+    case 'custom':
+      return customSplit(nets, config.customShares || []);
+    case 'equal-keeps':
+    default:
+      return equalKeeps(nets, sharePercentage);
+  }
+}
+
+/**
+ * Applies each account's allocation rules to people's incomes.
+ * A rule routes either a percentage of one person's income (or everyone's)
+ * or a fixed recurring amount into the account, before any split happens.
+ *
+ * @param {Array<{ id: string, metrics: { income: number } }>} people
+ * @param {Array<{ id: string, rules: Array<{ personId: string, basis: 'percent'|'fixed', value: number, frequency?: string }> }>} accounts
+ * @param {string} interval
+ * @returns {{ accountInflows: Record<string, number>, deductionsPerPerson: Record<string, number>, ruleAmounts: Record<string, number> }}
+ */
+export function computeAccountFlows(people, accounts, interval = 'month') {
+  const accountInflows = {};
+  const deductionsPerPerson = {};
+  const ruleAmounts = {};
+  people.forEach((person) => {
+    deductionsPerPerson[person.id] = 0;
+  });
+
+  accounts.forEach((account) => {
+    let inflow = 0;
+    (account.rules || []).forEach((rule) => {
+      const targets = rule.personId === 'all' ? people : people.filter((p) => p.id === rule.personId);
+      let ruleTotal = 0;
+      targets.forEach((person) => {
+        let amount = 0;
+        if (rule.basis === 'percent') {
+          amount = (Math.max(0, person.metrics.income) * clampPercentage(Number(rule.value) || 0)) / 100;
+        } else {
+          amount = normalizeAmount(rule.value, rule.frequency || 'monthly', interval);
+        }
+        deductionsPerPerson[person.id] = (deductionsPerPerson[person.id] || 0) + amount;
+        ruleTotal += amount;
+      });
+      ruleAmounts[rule.id] = ruleTotal;
+      inflow += ruleTotal;
+    });
+    accountInflows[account.id] = inflow;
+  });
+
+  return { accountInflows, deductionsPerPerson, ruleAmounts };
 }
 
 export function computeSharedTotals(allocation, sharedStartingBalance, sharedDirectEntries) {
