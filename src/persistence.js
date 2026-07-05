@@ -1,4 +1,25 @@
 const STORAGE_KEY = 'income-shared-planner-v3';
+const LEGACY_STORAGE_KEY = 'income-shared-planner-v2';
+
+const SYMBOL_TO_CODE = {
+  '£': 'GBP',
+  '$': 'USD',
+  '€': 'EUR',
+  '¥': 'JPY',
+};
+
+/**
+ * Converts a v2 payload (currencySymbol, e.g. "£") into the v3 shape
+ * (currencyCode, e.g. "GBP"). People/shared/snapshots carry over as-is.
+ */
+export function convertLegacyState(legacy) {
+  if (!legacy || typeof legacy !== 'object') return null;
+  const { currencySymbol, ...rest } = legacy;
+  return {
+    ...rest,
+    currencyCode: SYMBOL_TO_CODE[(currencySymbol || '').trim()] || 'GBP',
+  };
+}
 
 export function saveState(state) {
   try {
@@ -10,12 +31,22 @@ export function saveState(state) {
 
 export function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return null;
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch (error) {
+      console.error('Failed to restore planner state', error);
+    }
+  }
+
+  // Fall back to pre-rewrite data so nobody loses what the old app saved.
+  const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY);
+  if (!legacyRaw) return null;
   try {
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? parsed : null;
+    return convertLegacyState(JSON.parse(legacyRaw));
   } catch (error) {
-    console.error('Failed to restore planner state', error);
+    console.error('Failed to migrate legacy planner state', error);
     return null;
   }
 }

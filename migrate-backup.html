@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Budget Planner — Data Rescue</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Roboto, sans-serif;
+      background: #0d162b;
+      color: #e2e8f0;
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+      line-height: 1.6;
+    }
+    h1 { font-size: 1.5rem; }
+    .card {
+      background: rgba(16, 24, 42, 0.96);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 16px;
+      padding: 1.25rem;
+      margin: 1rem 0;
+    }
+    .muted { color: #94a3b8; font-size: 0.9rem; }
+    button {
+      padding: 0.7rem 1.4rem;
+      background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+      color: #0b1120;
+      border-radius: 12px;
+      border: none;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    ul { margin: 0.5rem 0; padding-left: 1.25rem; }
+    .ok { color: #10b981; }
+    .warn { color: #f87171; }
+  </style>
+</head>
+<body>
+  <h1>Budget Planner — Data Rescue</h1>
+  <p class="muted">
+    This page reads the planner data saved by the <em>old</em> version of the app in this
+    browser and downloads it as a backup file that the new version can import
+    (via its “Import backup” button). Open this page the same way you used to open
+    the old app — same browser, same method — so it can see the same saved data.
+  </p>
+
+  <div class="card" id="report">Scanning this browser's saved data…</div>
+
+  <button id="download" disabled>Download backup file</button>
+
+  <script>
+    var SYMBOL_TO_CODE = { '£': 'GBP', '$': 'USD', '€': 'EUR', '¥': 'JPY' };
+    var found = null;
+    var foundKey = null;
+
+    function convertLegacyState(legacy) {
+      if (!legacy || typeof legacy !== 'object') return null;
+      var converted = {};
+      for (var key in legacy) {
+        if (key !== 'currencySymbol') converted[key] = legacy[key];
+      }
+      var symbol = (legacy.currencySymbol || '').trim();
+      converted.currencyCode = SYMBOL_TO_CODE[symbol] || 'GBP';
+      return converted;
+    }
+
+    function describe(state) {
+      var parts = [];
+      if (Array.isArray(state.people)) {
+        var names = state.people.map(function (p) {
+          var count = Array.isArray(p.entries) ? p.entries.length : 0;
+          return (p.name || 'Unnamed') + ' (' + count + ' entries)';
+        });
+        parts.push('<li><strong>People:</strong> ' + names.join(', ') + '</li>');
+      }
+      if (state.shared) {
+        var directs = Array.isArray(state.shared.directEntries) ? state.shared.directEntries.length : 0;
+        parts.push('<li><strong>Shared account:</strong> starting balance ' +
+          (state.shared.startingBalance || 0) + ', ' + directs + ' direct additions</li>');
+      }
+      if (Array.isArray(state.snapshots)) {
+        parts.push('<li><strong>Snapshots:</strong> ' + state.snapshots.length + '</li>');
+      }
+      return parts.length ? '<ul>' + parts.join('') + '</ul>' : '<p class="muted">(empty payload)</p>';
+    }
+
+    function scan() {
+      var report = document.getElementById('report');
+      var candidates = ['income-shared-planner-v2', 'income-shared-planner-v1', 'income-shared-planner'];
+
+      // Also pick up any other planner keys we don't know about, newest-looking first.
+      for (var i = 0; i < localStorage.length; i++) {
+        var key = localStorage.key(i);
+        if (key && key.indexOf('income-shared-planner') === 0 &&
+            key !== 'income-shared-planner-v3' && key !== 'income-shared-planner-theme' &&
+            candidates.indexOf(key) === -1) {
+          candidates.push(key);
+        }
+      }
+
+      for (var j = 0; j < candidates.length; j++) {
+        var raw = localStorage.getItem(candidates[j]);
+        if (!raw) continue;
+        try {
+          var parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') {
+            found = parsed;
+            foundKey = candidates[j];
+            break;
+          }
+        } catch (e) { /* keep looking */ }
+      }
+
+      if (found) {
+        report.innerHTML =
+          '<p class="ok">✔ Found saved planner data under “' + foundKey + '”.</p>' +
+          describe(found) +
+          '<p class="muted">Click the button below to download it in the new format, ' +
+          'then use “Import backup” in the new app.</p>';
+        document.getElementById('download').disabled = false;
+      } else {
+        report.innerHTML =
+          '<p class="warn">✘ No old planner data found in this browser context.</p>' +
+          '<p class="muted">If you used a different browser (e.g. Edge vs Chrome), open this page there. ' +
+          'If you used to open the old app by double-clicking index.html, double-click this file the same way. ' +
+          'If you used a local server (like VS Code Live Server), open this page through that same server.</p>';
+      }
+    }
+
+    document.getElementById('download').addEventListener('click', function () {
+      var converted = convertLegacyState(found);
+      var blob = new Blob([JSON.stringify(converted, null, 2)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var link = document.createElement('a');
+      var stamp = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.download = 'budget-planner-backup-' + stamp + '.json';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    scan();
+  </script>
+</body>
+</html>
