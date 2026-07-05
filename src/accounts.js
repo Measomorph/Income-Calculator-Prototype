@@ -5,11 +5,12 @@ import { createGoalsView } from './goals.js';
 
 /**
  * Manages the dynamic list of account cards. Each account has a starting
- * balance, allocation rules (percent-of-income or fixed recurring amounts,
- * deducted from people before the split), direct additions, and goals.
- * The primary account additionally receives the split contributions.
+ * balance, allocation rules (percent-of-income, banded tax-style, or fixed
+ * recurring amounts, deducted from people before the split), signed direct
+ * entries (negative = withdrawal), and goals. The primary account
+ * additionally receives the split contributions.
  */
-export function createAccountsController({ grid, template, formatCurrency, getPeople, getInterval, onChange }) {
+export function createAccountsController({ grid, template, formatCurrency, getPeople, getInterval, getGoalEta, onChange, undoable }) {
   const accounts = [];
   let lastFlows = { accountInflows: {}, deductionsPerPerson: {}, ruleAmounts: {} };
   let lastAllocation = null;
@@ -29,6 +30,9 @@ export function createAccountsController({ grid, template, formatCurrency, getPe
       : (people.find((p) => p.id === rule.personId)?.nameInput.value.trim() || 'former member');
     if (rule.basis === 'percent') {
       return `${rule.value}% of ${who}'s income`;
+    }
+    if (rule.basis === 'band') {
+      return `${rule.label || 'Banded rate'} on ${who}'s income`;
     }
     const freqLabel = (FREQUENCIES[rule.frequency] || FREQUENCIES.monthly).label.toLowerCase();
     return `${formatCurrency(rule.value)} ${freqLabel} from ${who}`;
@@ -140,10 +144,16 @@ export function createAccountsController({ grid, template, formatCurrency, getPe
       const label = document.createElement('strong');
       label.textContent = entry.description;
       main.appendChild(label);
+      if (entry.amount < 0) {
+        const note = document.createElement('small');
+        note.textContent = 'Withdrawal';
+        main.appendChild(note);
+      }
 
       const amount = document.createElement('span');
       amount.className = 'amount';
       amount.textContent = formatCurrency(entry.amount);
+      if (entry.amount < 0) amount.classList.add('is-negative');
 
       const remove = document.createElement('button');
       remove.type = 'button';
@@ -154,7 +164,7 @@ export function createAccountsController({ grid, template, formatCurrency, getPe
       chip.append(main, amount, remove);
       account.directList.appendChild(chip);
     });
-    ensurePlaceholder(account.directList, 'No direct additions yet.');
+    ensurePlaceholder(account.directList, 'No direct additions or withdrawals yet.');
 
     const directTotal = account.directEntries.reduce((sum, entry) => sum + entry.amount, 0);
     account.projectedBalance = account.startingBalance + inflow + contributionTotal + directTotal;
@@ -171,11 +181,12 @@ export function createAccountsController({ grid, template, formatCurrency, getPe
   }
 
   function removeAccount(account) {
-    const index = accounts.indexOf(account);
-    if (index === -1) return;
-    accounts.splice(index, 1);
-    account.card.remove();
-    onChange();
+    undoable(`Removed account “${account.nameInput.value.trim() || 'account'}”`, () => {
+      const index = accounts.indexOf(account);
+      if (index === -1) return;
+      accounts.splice(index, 1);
+      account.card.remove();
+    });
   }
 
   function addAccount(data = {}) {
@@ -216,7 +227,9 @@ export function createAccountsController({ grid, template, formatCurrency, getPe
       formatCurrency,
       getGoals: () => account.goals,
       getProgress: () => account.projectedBalance,
+      getEta: getGoalEta ? (goal, saved) => getGoalEta({ owner: 'account', account, goal, saved }) : null,
       onChange,
+      undoable,
     });
 
     account.nameInput.addEventListener('input', onChange);
@@ -255,42 +268,39 @@ export function createAccountsController({ grid, template, formatCurrency, getPe
       const target = event.target;
       if (!(target instanceof HTMLElement) || target.dataset.action !== 'remove-rule') return;
       const ruleId = target.closest('.chip')?.dataset.ruleId;
-      armForConfirm(target, {
-        armedLabel: 'Confirm?',
-        onConfirm: () => {
-          const index = account.rules.findIndex((rule) => rule.id === ruleId);
-          if (index >= 0) {
-            account.rules.splice(index, 1);
-            onChange();
-          }
-        },
+      const rule = account.rules.find((r) => r.id === ruleId);
+      if (!rule) return;
+      undoable('Removed rule', () => {
+        const index = account.rules.indexOf(rule);
+        if (index >= 0) account.rules.splice(index, 1);
       });
     });
 
-    account.directForm.addEventListener('submit', (event) => {
-      event.preventDefault();
+    const submitDirect = (sign) => {
       const data = new FormData(account.directForm);
       const description = (data.get('description') || '').toString().trim();
       const amount = Math.abs(parseFloat(data.get('amount')) || 0);
       if (!description || amount === 0) return;
-      account.directEntries.push({ id: createId(), description, amount });
+      account.directEntries.push({ id: createId(), description, amount: sign * amount });
       account.directForm.reset();
       onChange();
+    };
+
+    account.directForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      submitDirect(1);
     });
+    account.directForm.querySelector('[data-action="direct-withdraw"]').addEventListener('click', () => submitDirect(-1));
 
     account.directList.addEventListener('click', (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement) || target.dataset.action !== 'remove-direct') return;
       const entryId = target.closest('.chip')?.dataset.entryId;
-      armForConfirm(target, {
-        armedLabel: 'Confirm?',
-        onConfirm: () => {
-          const index = account.directEntries.findIndex((entry) => entry.id === entryId);
-          if (index >= 0) {
-            account.directEntries.splice(index, 1);
-            onChange();
-          }
-        },
+      const entry = account.directEntries.find((e) => e.id === entryId);
+      if (!entry) return;
+      undoable(`Removed “${entry.description}”`, () => {
+        const index = account.directEntries.indexOf(entry);
+        if (index >= 0) account.directEntries.splice(index, 1);
       });
     });
 

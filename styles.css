@@ -1182,6 +1182,431 @@ header p {
   font-size: 0.85rem;
 }
 
+/* --- Entry input: chips + inline amount/frequency --- */
+
+.amount-freq {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 0.6rem;
+}
+
+.category-chips {
+  grid-column: span 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.category-chip {
+  border: 1px solid var(--card-border);
+  background: var(--muted-surface);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.category-chip:hover {
+  background: var(--muted-surface-strong);
+}
+
+.category-chip.is-selected {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+  color: #0b1120;
+  border-color: transparent;
+  font-weight: 600;
+}
+
+.category-chip.is-custom {
+  border-style: dashed;
+  color: var(--text-subtle);
+}
+
+.entry-form input[name='custom-category'] {
+  grid-column: span 2;
+}
+
+.entry-editor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  width: 100%;
+  align-items: center;
+}
+
+.entry-editor input,
+.entry-editor select {
+  flex: 1;
+  min-width: 6rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 12px;
+  border: 1px solid var(--card-border);
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.entry-editor button {
+  padding: 0.5rem 0.9rem;
+  border-radius: 12px;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+  color: #0b1120;
+}
+
+.entry-editor button.secondary {
+  background: var(--muted-surface-strong);
+  color: var(--text);
+}
+
+.detail-actions {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.detail-edit {
+  border: none;
+  background: transparent;
+  color: var(--text-subtle);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 8px;
+}
+
+.detail-edit:hover {
+  color: var(--text);
+  background: var(--muted-surface);
+}
+
+/* --- Withdrawals --- */
+
+.direct-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.direct-buttons .withdraw {
+  padding: 0.7rem 1rem;
+  background: linear-gradient(135deg, #E69F00 0%, #D55E00 100%);
+  color: #1a1005;
+  border-radius: 16px;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.chip .amount.is-negative {
+  color: var(--danger);
+}
+
+/* --- Goal ETA --- */
+
+.goal-eta {
+  font-size: 0.78rem;
+  color: var(--text-subtle);
+}
+
+/* --- Projection --- */
+
+.projection-note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-subtle);
+}
+
+.projection-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  overflow-x: auto;
+}
+
+.projection-row {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1.4fr) repeat(4, minmax(6rem, 1fr));
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 10px;
+}
+
+.projection-row:nth-child(even) {
+  background: var(--muted-surface);
+}
+
+.projection-row.is-header {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-subtle);
+}
+
+.projection-row span:not(.projection-name) {
+  text-align: right;
+}
+
+.projection-row .projection-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- Trends --- */
+
+.trends-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.trend-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text-subtle);
+}
+
+.trend-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* --- Scenarios --- */
+
+.scenario-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.scenario-bar button {
+  border: 1px solid var(--card-border);
+  background: var(--muted-surface);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.scenario-bar button:hover {
+  background: var(--muted-surface-strong);
+}
+
+.scenario-banner {
+  margin: 0 auto;
+  max-width: 720px;
+  background: var(--accent-soft);
+  border: 1px dashed var(--accent);
+  border-radius: 14px;
+  padding: 0.65rem 1rem;
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+/* --- Toasts --- */
+
+.toast-container {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 1000;
+  align-items: center;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--card-bg);
+  color: var(--text);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 0.7rem 1.1rem;
+  font-size: 0.92rem;
+  box-shadow: var(--shadow);
+  animation: toast-in 0.2s ease;
+}
+
+.toast.is-leaving {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.toast button {
+  border: none;
+  background: transparent;
+  color: var(--accent-strong);
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.92rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 8px;
+}
+
+:root[data-theme='light'] .toast button {
+  color: #b45309;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Dialogs --- */
+
+.app-dialog {
+  background: var(--card-bg);
+  color: var(--text);
+  border: 1px solid var(--card-border);
+  border-radius: 20px;
+  padding: 1.5rem;
+  max-width: 420px;
+  width: calc(100vw - 3rem);
+  box-shadow: var(--shadow);
+}
+
+.app-dialog::backdrop {
+  background: rgba(5, 7, 15, 0.6);
+  backdrop-filter: blur(2px);
+}
+
+.app-dialog h3 {
+  margin: 0 0 0.5rem;
+}
+
+.app-dialog p {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: var(--text-subtle);
+  line-height: 1.5;
+}
+
+.app-dialog input,
+.app-dialog select {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border-radius: 14px;
+  border: 1px solid var(--card-border);
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: 0.95rem;
+  margin-bottom: 1rem;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: flex-end;
+}
+
+.dialog-actions button {
+  padding: 0.6rem 1.2rem;
+  border-radius: 12px;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+  color: #0b1120;
+}
+
+.dialog-actions button.secondary {
+  background: var(--muted-surface-strong);
+  color: var(--text);
+}
+
+.csv-dialog {
+  max-width: 640px;
+}
+
+.csv-mapping {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.csv-mapping label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--text-subtle);
+}
+
+.csv-mapping select {
+  margin-bottom: 0;
+}
+
+.csv-note {
+  font-size: 0.8rem !important;
+}
+
+.csv-preview {
+  overflow-x: auto;
+  margin-bottom: 1rem;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+}
+
+.csv-preview table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.8rem;
+}
+
+.csv-preview th,
+.csv-preview td {
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  border-bottom: 1px solid var(--card-border);
+  white-space: nowrap;
+}
+
+.csv-preview th {
+  color: var(--text-subtle);
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+}
+
+.section-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.section-actions button {
+  border: 1px solid var(--card-border);
+  background: var(--muted-surface);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.section-actions button:hover {
+  background: var(--muted-surface-strong);
+}
+
 .app-footer {
   text-align: center;
   padding: 1rem 0 2rem;

@@ -71,7 +71,26 @@
           Import backup
           <input id="import-data" type="file" accept="application/json" hidden />
         </label>
+        <label class="file-button">
+          Import bank CSV
+          <input id="import-csv" type="file" accept=".csv,text/csv" hidden />
+        </label>
         <span class="data-status" data-role="data-status" role="status" aria-live="polite"></span>
+      </div>
+
+      <div class="scenario-bar no-print">
+        <label class="control">
+          <span>Scenario</span>
+          <select id="scenario-select" aria-label="Active scenario">
+            <option value="">Live</option>
+          </select>
+        </label>
+        <button id="save-scenario" type="button">Save as scenario…</button>
+        <button id="delete-scenario" type="button" hidden>Delete scenario</button>
+      </div>
+      <div class="scenario-banner no-print" data-role="scenario-banner" hidden>
+        <strong>Sandbox:</strong> you're viewing a scenario — changes here never touch your live data.
+        <span data-role="scenario-compare"></span>
       </div>
     </header>
 
@@ -92,18 +111,21 @@
           <button type="button" class="remove-person no-print" data-action="remove-person" aria-label="Remove person">Remove</button>
         </div>
         <form class="entry-form no-print" autocomplete="off">
-          <input name="description" type="text" placeholder="Description" aria-label="Entry description" required />
-          <input name="amount" type="number" min="0" step="0.01" placeholder="Amount" aria-label="Entry amount" required />
-          <input name="category" type="text" placeholder="Category" aria-label="Entry category" list="categories-income" />
-          <select name="frequency" aria-label="Entry frequency">
-            <option value="once">One-off</option>
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="fortnightly">Fortnightly</option>
-            <option value="monthly" selected>Monthly</option>
-            <option value="quarterly">Quarterly</option>
-            <option value="yearly">Yearly</option>
-          </select>
+          <input name="description" type="text" placeholder="e.g. Rent 950 monthly" aria-label="Entry description (amount and frequency can be typed inline)" required />
+          <div class="amount-freq">
+            <input name="amount" type="number" min="0" step="0.01" placeholder="Amount" aria-label="Entry amount" />
+            <select name="frequency" aria-label="Entry frequency">
+              <option value="once">One-off</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="fortnightly">Fortnightly</option>
+              <option value="monthly" selected>Monthly</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="yearly">Yearly</option>
+            </select>
+          </div>
+          <div class="category-chips" data-role="category-chips" role="group" aria-label="Category"></div>
+          <input name="custom-category" type="text" placeholder="New category name" aria-label="Custom category" hidden />
           <input type="hidden" name="type" value="income" />
           <div class="type-buttons">
             <button type="button" data-entry-type="income" aria-label="Add incoming">+ Incoming</button>
@@ -166,9 +188,12 @@
     <section class="accounts-section" aria-label="Accounts">
       <div class="section-heading">
         <h2>Accounts</h2>
-        <button id="add-account" type="button" class="no-print">+ Add account</button>
+        <div class="section-actions no-print">
+          <button id="uk-tax-preset" type="button">UK self-employed preset</button>
+          <button id="add-account" type="button">+ Add account</button>
+        </div>
       </div>
-      <p class="lead">Create the pots your money should flow into — a shared account, tax set-aside, pension, savings — and give each one rules like “20% of Alex's income” or a fixed amount per week.</p>
+      <p class="lead">Create the pots your money should flow into — a shared account, tax set-aside, pension, savings — and give each one rules like “20% of Alex's income” or a fixed amount per week. The UK preset adds Income Tax and Class 4 NI pots with 2025/26 banded rates (an estimate on gross income, not tax advice).</p>
       <div class="grid" id="accounts-grid"></div>
     </section>
 
@@ -218,9 +243,12 @@
         </div>
 
         <form class="shared-form no-print" data-role="direct-form" autocomplete="off">
-          <input name="description" type="text" placeholder="Direct addition (e.g. Bonus)" aria-label="Direct addition description" required />
-          <input name="amount" type="number" min="0" step="0.01" placeholder="Amount" aria-label="Direct addition amount" required />
-          <button type="submit">Add</button>
+          <input name="description" type="text" placeholder="e.g. Bonus, Paid tax bill" aria-label="Direct entry description" required />
+          <input name="amount" type="number" min="0" step="0.01" placeholder="Amount" aria-label="Direct entry amount" required />
+          <div class="direct-buttons">
+            <button type="submit">+ Add</button>
+            <button type="button" data-action="direct-withdraw" class="withdraw">− Withdraw</button>
+          </div>
         </form>
         <div class="direct-list" data-role="direct-list"></div>
 
@@ -256,6 +284,15 @@
         <div class="category-list" data-role="category-breakdown"></div>
       </div>
 
+      <div class="breakdown-card projection-card">
+        <div class="breakdown-heading">
+          <strong>12-month projection</strong>
+          <span class="pill">at current rates</span>
+        </div>
+        <p class="projection-note">Recurring inflows only — one-off entries and future direct additions aren't projected.</p>
+        <div class="projection-table" data-role="projection-table"></div>
+      </div>
+
       <div class="reporting-actions no-print">
         <form id="snapshot-form" autocomplete="off">
           <input id="snapshot-month" type="month" aria-label="Snapshot month" />
@@ -263,6 +300,7 @@
         </form>
         <span class="snapshot-status" data-role="snapshot-status" role="status" aria-live="polite"></span>
         <button id="print-snapshots" type="button">🖨 Print / Save as PDF</button>
+        <button id="clear-oneoffs" type="button" hidden>Clear old one-offs</button>
       </div>
 
       <div class="chart-legend no-print" data-role="chart-legend">
@@ -276,8 +314,63 @@
         <canvas id="snapshot-chart" aria-label="Combined earnings by month"></canvas>
       </div>
 
+      <div class="trends-block">
+        <div class="breakdown-heading">
+          <strong>Category trends</strong>
+          <span class="trend-legend" data-role="trends-legend"></span>
+        </div>
+        <div class="snapshot-chart-wrapper no-print">
+          <canvas id="category-trend-chart" aria-label="Top spending categories across snapshots"></canvas>
+        </div>
+      </div>
+
       <div class="snapshot-list" data-role="snapshot-list"></div>
     </section>
+
+    <dialog id="passphrase-dialog" class="app-dialog">
+      <form method="dialog">
+        <h3 data-role="passphrase-title">Encrypt backup</h3>
+        <p data-role="passphrase-hint">Optional: add a passphrase to encrypt the file. Leave blank to export unencrypted. There is no recovery if you forget it.</p>
+        <input type="password" name="passphrase" placeholder="Passphrase" aria-label="Passphrase" autocomplete="off" />
+        <div class="dialog-actions">
+          <button value="ok" type="submit">Continue</button>
+          <button value="cancel" type="button" class="secondary" data-action="cancel">Cancel</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="scenario-dialog" class="app-dialog">
+      <form method="dialog">
+        <h3>Save as scenario</h3>
+        <p>Copies the current numbers into a sandbox you can experiment with, without touching your live data.</p>
+        <input type="text" name="scenario-name" placeholder="e.g. If Riley goes part-time" aria-label="Scenario name" required />
+        <div class="dialog-actions">
+          <button value="ok" type="submit">Save scenario</button>
+          <button value="cancel" type="button" class="secondary" data-action="cancel">Cancel</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="csv-dialog" class="app-dialog csv-dialog">
+      <form method="dialog">
+        <h3>Import bank CSV</h3>
+        <div class="csv-mapping">
+          <label>Description column <select name="csv-description"></select></label>
+          <label>Amount column <select name="csv-amount"></select></label>
+          <label>Assign to <select name="csv-person"></select></label>
+          <label>Negative amounts are <select name="csv-sign">
+            <option value="expense" selected>Outgoings (typical statement)</option>
+            <option value="income">Incomings</option>
+          </select></label>
+        </div>
+        <p class="csv-note">Rows import as one-off entries. Categories are guessed from your history where the description matches.</p>
+        <div class="csv-preview" data-role="csv-preview"></div>
+        <div class="dialog-actions">
+          <button value="ok" type="submit">Import <span data-role="csv-count"></span> rows</button>
+          <button value="cancel" type="button" class="secondary" data-action="cancel">Cancel</button>
+        </div>
+      </form>
+    </dialog>
 
     <footer class="app-footer">
       <p><strong>Your data stays on this device.</strong> Everything is stored locally in your browser — nothing is sent to any server, and there are no accounts or tracking. Use “Export backup” to keep a copy outside the browser.</p>

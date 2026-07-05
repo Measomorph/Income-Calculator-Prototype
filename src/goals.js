@@ -1,13 +1,14 @@
 import { createId } from './format.js';
-import { armForConfirm } from './confirm.js';
 
 /**
  * Renders a list of savings goals with progress bars into `container` and
  * wires an add-goal form. `getProgress(goal)` supplies the current saved
  * amount (an account's projected balance, or a person's manually tracked
  * figure); `onSavedEdit` being set makes the saved amount user-editable.
+ * `getEta(goal, saved)` may return a human ETA string ("≈ Mar 2027").
+ * `undoable(label, mutate)` performs a deletion that can be undone.
  */
-export function createGoalsView({ container, form, formatCurrency, getGoals, getProgress, onChange, onSavedEdit }) {
+export function createGoalsView({ container, form, formatCurrency, getGoals, getProgress, getEta, onChange, onSavedEdit, undoable }) {
   function render() {
     const goals = getGoals();
     container.innerHTML = '';
@@ -63,6 +64,14 @@ export function createGoalsView({ container, form, formatCurrency, getGoals, get
 
       item.append(heading, bar);
 
+      const eta = getEta ? getEta(goal, saved) : null;
+      if (eta) {
+        const etaLine = document.createElement('span');
+        etaLine.className = 'goal-eta';
+        etaLine.textContent = eta;
+        item.appendChild(etaLine);
+      }
+
       if (onSavedEdit) {
         const savedRow = document.createElement('label');
         savedRow.className = 'goal-saved no-print';
@@ -87,16 +96,12 @@ export function createGoalsView({ container, form, formatCurrency, getGoals, get
     const target = event.target;
     if (!(target instanceof HTMLElement) || target.dataset.action !== 'remove-goal') return;
     const goalId = target.closest('.goal-item')?.dataset.goalId;
-    armForConfirm(target, {
-      armedLabel: 'Confirm?',
-      onConfirm: () => {
-        const goals = getGoals();
-        const index = goals.findIndex((goal) => goal.id === goalId);
-        if (index >= 0) {
-          goals.splice(index, 1);
-          onChange();
-        }
-      },
+    const goals = getGoals();
+    const goal = goals.find((g) => g.id === goalId);
+    if (!goal) return;
+    undoable(`Removed goal “${goal.name}”`, () => {
+      const index = goals.indexOf(goal);
+      if (index >= 0) goals.splice(index, 1);
     });
   });
 

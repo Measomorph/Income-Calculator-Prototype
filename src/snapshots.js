@@ -1,5 +1,8 @@
 import { createId, formatMonthLabel, formatTimestamp } from './format.js';
-import { armForConfirm } from './confirm.js';
+
+// Okabe-Ito rotation for dynamically assigned category series.
+const CATEGORY_COLORS = ['#E69F00', '#56B4E9', '#009E73', '#D55E00', '#CC79A7', '#0072B2', '#F0E442'];
+const CATEGORY_DASHES = [[], [8, 4], [2, 4], [8, 4, 2, 4], [12, 4]];
 
 // Okabe-Ito colorblind-safe palette, plus a dash pattern per series so the
 // lines stay distinguishable without relying on color alone.
@@ -22,12 +25,15 @@ export function createSnapshotsController({
   snapshotStatus,
   snapshotChart,
   chartLegend,
+  trendsChart,
+  trendsLegend,
   formatCurrency,
   getPeople,
   getAllocation,
   getPrimaryAccount,
   getInterval,
   onChange,
+  undoable,
 }) {
   const monthlySnapshots = [];
   let lastChartData = [];
@@ -56,7 +62,15 @@ export function createSnapshotsController({
     const overallIncome = people.reduce((sum, person) => sum + person.metrics.income, 0);
     const overallExpense = people.reduce((sum, person) => sum + person.metrics.expense, 0);
 
+    const byCategory = {};
+    people.forEach((person) => {
+      Object.entries(person.metrics.byCategory.expense).forEach(([category, amount]) => {
+        byCategory[category] = (byCategory[category] || 0) + amount;
+      });
+    });
+
     return {
+      byCategory,
       id: createId(),
       month: monthKey,
       capturedAt: new Date().toISOString(),
@@ -98,6 +112,7 @@ export function createSnapshotsController({
       empty.textContent = 'No snapshots captured yet. Log one above to begin your history.';
       snapshotList.appendChild(empty);
       drawChart([]);
+      drawTrends([]);
       return;
     }
 
@@ -147,6 +162,7 @@ export function createSnapshotsController({
     });
 
     drawChart(ordered);
+    drawTrends(ordered);
   }
 
   function drawChart(data) {
@@ -257,8 +273,94 @@ export function createSnapshotsController({
     ctx.fillText(formatCurrency(minValue), width - 12, height - padding.bottom);
   }
 
+  /** Line chart of the top expense categories across snapshots. */
+  function drawTrends(data) {
+    if (!trendsChart) return;
+    const ctx = trendsChart.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const width = trendsChart.clientWidth || 600;
+    const height = trendsChart.clientHeight || 200;
+
+    trendsChart.width = width * dpr;
+    trendsChart.height = height * dpr;
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = cssVar('--chart-bg', 'rgba(148, 163, 184, 0.15)');
+    ctx.fillRect(0, 0, width, height);
+
+    const withCategories = data.filter((snapshot) => snapshot.byCategory && Object.keys(snapshot.byCategory).length);
+    if (trendsLegend) trendsLegend.innerHTML = '';
+    if (withCategories.length < 2) {
+      ctx.fillStyle = cssVar('--chart-text', '#94a3b8');
+      ctx.font = '14px "Segoe UI", sans-serif';
+      ctx.fillText('Category trends appear once two or more snapshots include category data.', 16, height / 2);
+      return;
+    }
+
+    const totals = {};
+    withCategories.forEach((snapshot) => {
+      Object.entries(snapshot.byCategory).forEach(([category, amount]) => {
+        totals[category] = (totals[category] || 0) + amount;
+      });
+    });
+    const topCategories = Object.entries(totals)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([category]) => category);
+
+    const padding = { top: 16, right: 24, bottom: 36, left: 48 };
+    const maxValue = Math.max(1, ...withCategories.flatMap(
+      (snapshot) => topCategories.map((category) => snapshot.byCategory[category] || 0)
+    ));
+
+    const xForIndex = (index) => withCategories.length === 1
+      ? padding.left + (width - padding.left - padding.right) / 2
+      : padding.left + (index * (width - padding.left - padding.right)) / (withCategories.length - 1);
+    const yForValue = (value) => padding.top + (1 - value / maxValue) * (height - padding.top - padding.bottom);
+
+    topCategories.forEach((category, seriesIndex) => {
+      const color = CATEGORY_COLORS[seriesIndex % CATEGORY_COLORS.length];
+      const dash = CATEGORY_DASHES[seriesIndex % CATEGORY_DASHES.length];
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.setLineDash(dash);
+      ctx.beginPath();
+      withCategories.forEach((snapshot, index) => {
+        const x = xForIndex(index);
+        const y = yForValue(snapshot.byCategory[category] || 0);
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      if (trendsLegend) {
+        const item = document.createElement('span');
+        item.className = 'trend-legend-item';
+        const swatch = document.createElement('span');
+        swatch.className = 'legend-swatch';
+        swatch.style.background = color;
+        item.append(swatch, document.createTextNode(` ${category}`));
+        trendsLegend.appendChild(item);
+      }
+    });
+
+    ctx.fillStyle = cssVar('--chart-text', '#94a3b8');
+    ctx.font = '12px "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    withCategories.forEach((snapshot, index) => {
+      ctx.fillText(formatMonthLabel(snapshot.month), xForIndex(index), height - 14);
+    });
+    ctx.textAlign = 'right';
+    ctx.fillText(formatCurrency(maxValue), width - 12, padding.top + 12);
+  }
+
   window.addEventListener('resize', () => {
-    if (lastChartData.length) drawChart(lastChartData);
+    if (lastChartData.length) {
+      drawChart(lastChartData);
+      drawTrends(lastChartData);
+    }
   });
 
   if (chartLegend) {
@@ -306,18 +408,13 @@ export function createSnapshotsController({
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     if (target.dataset.action === 'remove-snapshot') {
-      armForConfirm(target, {
-        armedLabel: 'Confirm delete?',
-        onConfirm: () => {
-          const snapshotId = target.dataset.snapshotId;
-          const index = monthlySnapshots.findIndex((snapshot) => snapshot.id === snapshotId);
-          if (index >= 0) {
-            const [removed] = monthlySnapshots.splice(index, 1);
-            announce(`Deleted snapshot for ${formatMonthLabel(removed.month)}.`);
-            render();
-            onChange();
-          }
-        },
+      const snapshotId = target.dataset.snapshotId;
+      const snapshot = monthlySnapshots.find((s) => s.id === snapshotId);
+      if (!snapshot) return;
+      undoable(`Deleted snapshot for ${formatMonthLabel(snapshot.month)}`, () => {
+        const index = monthlySnapshots.indexOf(snapshot);
+        if (index >= 0) monthlySnapshots.splice(index, 1);
+        render();
       });
     }
   });
@@ -335,5 +432,13 @@ export function createSnapshotsController({
 
   initializeSnapshotMonth();
 
-  return { render, getState, setState, redrawChart: () => drawChart(lastChartData) };
+  return {
+    render,
+    getState,
+    setState,
+    redrawChart: () => {
+      drawChart(lastChartData);
+      drawTrends(lastChartData);
+    },
+  };
 }
