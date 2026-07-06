@@ -32,7 +32,8 @@ export function createAccountsController({ grid, template, formatCurrency, getPe
       return `${rule.value}% of ${who}'s income`;
     }
     if (rule.basis === 'band') {
-      return `${rule.label || 'Banded rate'} on ${who}'s income`;
+      const base = rule.base === 'profit' ? 'profit (after Business outgoings)' : 'income';
+      return `${rule.label || 'Banded rate'} on ${who}'s ${base}`;
     }
     const freqLabel = (FREQUENCIES[rule.frequency] || FREQUENCIES.monthly).label.toLowerCase();
     return `${formatCurrency(rule.value)} ${freqLabel} from ${who}`;

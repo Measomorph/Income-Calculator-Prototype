@@ -1,6 +1,6 @@
 export const PRESET_CATEGORIES = {
   income: ['Salary', 'Freelance', 'Business', 'Benefits', 'Investments', 'Pension', 'Other'],
-  expense: ['Housing', 'Food', 'Transport', 'Bills', 'Health', 'Leisure', 'Debt', 'Childcare', 'Other'],
+  expense: ['Housing', 'Food', 'Transport', 'Bills', 'Business', 'Health', 'Leisure', 'Debt', 'Childcare', 'Other'],
 };
 
 /**

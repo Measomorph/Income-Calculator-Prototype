@@ -32,6 +32,26 @@ describe('band rules in computeAccountFlows', () => {
     const expectedAnnual = 37700 * 0.2 + 9730 * 0.4;
     expect(flows.accountInflows.tax).toBeCloseTo(expectedAnnual / 12);
   });
+
+  it('base "profit" deducts Business-category outgoings before banding', () => {
+    // £5,000/mo income, £1,000/mo Business costs -> £48k/yr profit
+    const people = [{
+      id: 'p1',
+      metrics: { income: 5000, byCategory: { expense: { Business: 1000, Food: 400 } } },
+    }];
+    const accounts = [{
+      id: 'tax',
+      rules: [{ id: 'r1', personId: 'p1', basis: 'band', base: 'profit', bands: UK_TAX_PRESETS.incomeTax.bands }],
+    }];
+    const flows = computeAccountFlows(people, accounts, 'month');
+    const expectedAnnual = (48000 - 12570) * 0.2; // all within basic rate
+    expect(flows.accountInflows.tax).toBeCloseTo(expectedAnnual / 12);
+  });
+
+  it('UK presets are marked profit-based', () => {
+    expect(UK_TAX_PRESETS.incomeTax.base).toBe('profit');
+    expect(UK_TAX_PRESETS.class4Ni.base).toBe('profit');
+  });
 });
 
 describe('computeMonthlyRates', () => {

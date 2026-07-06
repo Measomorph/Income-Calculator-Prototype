@@ -696,11 +696,11 @@ document.getElementById('uk-tax-preset').addEventListener('click', () => {
     const personId = person.id;
     accountsController.addAccount({
       name: UK_TAX_PRESETS.incomeTax.name,
-      rules: [{ id: createId(), personId, basis: 'band', bands: UK_TAX_PRESETS.incomeTax.bands, label: 'UK Income Tax bands 2025/26' }],
+      rules: [{ id: createId(), personId, basis: 'band', base: UK_TAX_PRESETS.incomeTax.base, bands: UK_TAX_PRESETS.incomeTax.bands, label: 'UK Income Tax bands 2025/26' }],
     });
     accountsController.addAccount({
       name: UK_TAX_PRESETS.class4Ni.name,
-      rules: [{ id: createId(), personId, basis: 'band', bands: UK_TAX_PRESETS.class4Ni.bands, label: 'Class 4 NI bands 2025/26' }],
+      rules: [{ id: createId(), personId, basis: 'band', base: UK_TAX_PRESETS.class4Ni.base, bands: UK_TAX_PRESETS.class4Ni.bands, label: 'Class 4 NI bands 2025/26' }],
     });
     handleChange();
     announceDataStatus(`Tax and NI pots added for ${person.nameInput.value.trim() || 'person'} (estimates, not tax advice).`);

@@ -61,6 +61,18 @@
   display: none !important;
 }
 
+/* Numbers are typed, not nudged a penny at a time — hide the spinners. */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -426,9 +438,14 @@ header p {
 
 .entry-form {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 0.85rem;
   align-items: center;
+}
+
+.entry-form input[name='description'],
+.entry-form .amount-freq {
+  grid-column: span 2;
 }
 
 .entry-form input,
@@ -705,7 +722,7 @@ header p {
 
 .rule-form {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.8fr) auto;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 0.6rem;
   align-items: center;
 }
@@ -1184,10 +1201,17 @@ header p {
 
 /* --- Entry input: chips + inline amount/frequency --- */
 
+/* Wraps rather than squeezing: "Amount" and "Monthly" stay fully visible. */
 .amount-freq {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 0.6rem;
+}
+
+.amount-freq input,
+.amount-freq select {
+  padding-left: 0.7rem;
+  padding-right: 0.7rem;
 }
 
 .category-chips {

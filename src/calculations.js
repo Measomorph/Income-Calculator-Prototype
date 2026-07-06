@@ -244,8 +244,13 @@ export function computeAccountFlows(people, accounts, interval = 'month') {
         if (rule.basis === 'percent') {
           amount = (Math.max(0, person.metrics.income) * clampPercentage(Number(rule.value) || 0)) / 100;
         } else if (rule.basis === 'band') {
-          const annualIncome = Math.max(0, person.metrics.income) * (INTERVALS[interval]?.perYear || 12);
-          amount = normalizeAmount(applyBands(annualIncome, rule.bands), 'yearly', interval);
+          // base 'profit' deducts outgoings categorised as Business first —
+          // the closest match to HMRC taxing profit, not turnover.
+          const businessExpenses = rule.base === 'profit'
+            ? (person.metrics.byCategory?.expense?.Business || 0)
+            : 0;
+          const annualBase = Math.max(0, person.metrics.income - businessExpenses) * (INTERVALS[interval]?.perYear || 12);
+          amount = normalizeAmount(applyBands(annualBase, rule.bands), 'yearly', interval);
         } else {
           amount = normalizeAmount(rule.value, rule.frequency || 'monthly', interval);
         }
@@ -261,11 +266,13 @@ export function computeAccountFlows(people, accounts, interval = 'month') {
   return { accountInflows, deductionsPerPerson, ruleAmounts };
 }
 
-// HMRC 2025/26 figures. An estimate on gross income (not taxed profit after
-// allowable expenses), so presented in the UI as guidance only.
+// HMRC 2025/26 figures. Applied to profit — income minus outgoings
+// categorised as Business — which is closer to how HMRC assesses the
+// self-employed. Still an estimate, presented in the UI as guidance only.
 export const UK_TAX_PRESETS = {
   incomeTax: {
     name: 'Income Tax (est.)',
+    base: 'profit',
     bands: [
       { from: 12570, to: 50270, rate: 20 },
       { from: 50270, to: 125140, rate: 40 },
@@ -274,6 +281,7 @@ export const UK_TAX_PRESETS = {
   },
   class4Ni: {
     name: 'Class 4 NI (est.)',
+    base: 'profit',
     bands: [
       { from: 12570, to: 50270, rate: 6 },
       { from: 50270, to: null, rate: 2 },
