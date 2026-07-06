@@ -417,10 +417,16 @@ header p {
   color: var(--text);
 }
 
-.primary-note {
-  margin: -0.75rem 0 0;
-  font-size: 0.85rem;
+.primary-badge {
+  background: var(--muted-surface-strong);
   color: var(--text-subtle);
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: help;
 }
 
 .field-error {
@@ -830,9 +836,13 @@ header p {
 
 .shared-form {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 0.9rem;
   align-items: center;
+}
+
+.shared-form input[name='description'] {
+  grid-column: 1 / -1;
 }
 
 .shared-form button {
