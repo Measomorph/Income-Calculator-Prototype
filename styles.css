@@ -1423,6 +1423,11 @@ header p {
 .direct-buttons {
   display: flex;
   gap: 0.5rem;
+  grid-column: 1 / -1;
+}
+
+.direct-buttons button {
+  flex: 1;
 }
 
 .direct-buttons .withdraw {
