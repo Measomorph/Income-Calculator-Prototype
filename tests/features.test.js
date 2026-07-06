@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyBands, computeMonthlyRates, monthsToTarget, computeAccountFlows, UK_TAX_PRESETS } from '../src/calculations.js';
+import { applyBands, computeMonthlyRates, monthsToTarget, monthlyInterestRate, projectBalance, computeAccountFlows, UK_TAX_PRESETS } from '../src/calculations.js';
 import { encryptState, decryptState, isEncryptedEnvelope } from '../src/crypto.js';
 import { parseCSV, guessColumns, parseStatementAmount } from '../src/csv.js';
 import { parseQuickEntry, buildPayeeMemory, lookupPayee, chipCategories } from '../src/entry-smarts.js';
@@ -80,6 +80,45 @@ describe('monthsToTarget', () => {
   it('returns 0 when already reached and null when unreachable', () => {
     expect(monthsToTarget(5000, 5000, 100)).toBe(0);
     expect(monthsToTarget(0, 5000, 0)).toBeNull();
+  });
+  it('reaches the target sooner when interest compounds', () => {
+    const withoutInterest = monthsToTarget(10000, 20000, 200);
+    const withInterest = monthsToTarget(10000, 20000, 200, 4.5);
+    expect(withInterest).toBeLessThan(withoutInterest);
+  });
+  it('can reach a target on interest alone', () => {
+    // £10k at 4.5% AER doubles in ~15.7 years with no contributions
+    const months = monthsToTarget(10000, 20000, 0, 4.5);
+    expect(months).toBeGreaterThan(180);
+    expect(months).toBeLessThan(195);
+  });
+  it('stays unreachable with interest but no balance or contributions', () => {
+    expect(monthsToTarget(0, 5000, 0, 4.5)).toBeNull();
+  });
+});
+
+describe('interest projections', () => {
+  it('converts AER to a monthly rate that compounds back to the annual figure', () => {
+    const monthly = monthlyInterestRate(4.5);
+    expect(Math.pow(1 + monthly, 12)).toBeCloseTo(1.045);
+    expect(monthlyInterestRate(0)).toBe(0);
+    expect(monthlyInterestRate(-2)).toBe(0);
+  });
+
+  it('projects contributions without interest linearly', () => {
+    expect(projectBalance(1000, 250, 12)).toBe(4000);
+  });
+
+  it('grows a lump sum by exactly the AER over 12 months', () => {
+    expect(projectBalance(10000, 0, 12, 4.5)).toBeCloseTo(10450);
+  });
+
+  it('compounds contributions month by month', () => {
+    // Closed form must match a manual month-by-month walk.
+    const i = monthlyInterestRate(4.5);
+    let manual = 1000;
+    for (let m = 0; m < 6; m++) manual = manual * (1 + i) + 250;
+    expect(projectBalance(1000, 250, 6, 4.5)).toBeCloseTo(manual);
   });
 });
 

@@ -202,6 +202,7 @@ export function createAccountsController({ grid, template, formatCurrency, getPe
       removeButton: card.querySelector('[data-action="remove-account"]'),
       primaryNote: card.querySelector('[data-role="primary-note"]'),
       startingInput: card.querySelector('.account-starting'),
+      interestInput: card.querySelector('.account-interest'),
       rulesList: card.querySelector('[data-role="rules-list"]'),
       ruleForm: card.querySelector('[data-role="rule-form"]'),
       contributionsBlock: card.querySelector('[data-role="contributions-block"]'),
@@ -212,6 +213,7 @@ export function createAccountsController({ grid, template, formatCurrency, getPe
       totalEl: card.querySelector('[data-field="account-total"]'),
       balanceCaption: card.querySelector('[data-field="balance-caption"]'),
       startingBalance: Number(data.startingBalance) || 0,
+      interestRate: Math.max(0, Number(data.interestRate) || 0),
       rules: (data.rules || []).map((rule) => ({ ...rule, id: rule.id || createId() })),
       directEntries: (data.directEntries || []).map((entry) => ({ ...entry })),
       goals: (data.goals || []).map((goal) => ({ ...goal })),
@@ -220,6 +222,7 @@ export function createAccountsController({ grid, template, formatCurrency, getPe
 
     account.nameInput.value = data.name || 'New account';
     account.startingInput.value = account.startingBalance.toFixed(2);
+    account.interestInput.value = account.interestRate > 0 ? String(account.interestRate) : '';
     account.removeButton.hidden = account.primary;
 
     account.goalsView = createGoalsView({
@@ -239,6 +242,13 @@ export function createAccountsController({ grid, template, formatCurrency, getPe
       const value = parseFloat(account.startingInput.value);
       account.startingBalance = Number.isFinite(value) ? value : 0;
       account.startingInput.value = account.startingBalance.toFixed(2);
+      onChange();
+    });
+
+    account.interestInput.addEventListener('change', () => {
+      const value = parseFloat(account.interestInput.value);
+      account.interestRate = Number.isFinite(value) && value > 0 ? value : 0;
+      account.interestInput.value = account.interestRate > 0 ? String(account.interestRate) : '';
       onChange();
     });
 
@@ -331,6 +341,7 @@ export function createAccountsController({ grid, template, formatCurrency, getPe
       name: account.nameInput.value.trim(),
       primary: account.primary,
       startingBalance: account.startingBalance,
+      interestRate: account.interestRate,
       rules: account.rules.map((rule) => ({ ...rule })),
       directEntries: account.directEntries.map((entry) => ({ ...entry })),
       goals: account.goals.map((goal) => ({ ...goal })),

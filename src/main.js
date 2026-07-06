@@ -1,5 +1,5 @@
 import { formatCurrency as formatCurrencyIntl, createId } from './format.js';
-import { calculateSplit, computeAccountFlows, computeMonthlyOutlook, monthsToTarget, SPLIT_STRATEGIES, UK_TAX_PRESETS } from './calculations.js';
+import { calculateSplit, computeAccountFlows, computeMonthlyOutlook, monthsToTarget, projectBalance, SPLIT_STRATEGIES, UK_TAX_PRESETS } from './calculations.js';
 import { INTERVALS } from './frequency.js';
 import { createPeopleController } from './people.js';
 import { createAccountsController } from './accounts.js';
@@ -53,8 +53,8 @@ function announceDataStatus(message) {
   }, 4000);
 }
 
-function etaLabel(saved, target, monthlyRate) {
-  const months = monthsToTarget(saved, Number(target) || 0, monthlyRate);
+function etaLabel(saved, target, monthlyRate, interestRate = 0) {
+  const months = monthsToTarget(saved, Number(target) || 0, monthlyRate, interestRate);
   if (months === 0) return 'Target reached 🎉';
   if (months === null || months > 600) return null;
   const eta = new Date();
@@ -64,7 +64,9 @@ function etaLabel(saved, target, monthlyRate) {
 }
 
 function getGoalEta({ owner, account, person, goal, saved }) {
-  if (owner === 'account') return etaLabel(saved, goal.target, lastMonthlyOutlook.rates[account.id] || 0);
+  if (owner === 'account') {
+    return etaLabel(saved, goal.target, lastMonthlyOutlook.rates[account.id] || 0, account.interestRate || 0);
+  }
   return etaLabel(saved, goal.target, lastMonthlyOutlook.keeps[person.id] || 0);
 }
 
@@ -204,12 +206,14 @@ function renderProjection() {
 
   accountsController.accounts.forEach((account) => {
     const rate = lastMonthlyOutlook.rates[account.id] || 0;
+    const interest = account.interestRate || 0;
     const row = document.createElement('div');
     row.className = 'projection-row';
+    const name = account.nameInput.value.trim() || 'Account';
     const cells = [
-      account.nameInput.value.trim() || 'Account',
+      interest > 0 ? `${name} (${interest}% AER)` : name,
       formatCurrency(account.projectedBalance),
-      ...horizons.map((m) => formatCurrency(account.projectedBalance + rate * m)),
+      ...horizons.map((m) => formatCurrency(projectBalance(account.projectedBalance, rate, m, interest))),
     ];
     cells.forEach((text, index) => {
       const cell = document.createElement('span');
@@ -825,7 +829,7 @@ function buildDemoState() {
         goals: [{ id: 'ag1', name: 'Holiday fund', target: 5000 }],
       },
       {
-        id: 'demo-tax', name: 'Tax set-aside', primary: false, startingBalance: 0,
+        id: 'demo-tax', name: 'Tax set-aside', primary: false, startingBalance: 0, interestRate: 4.1,
         rules: [{ id: 'dr1', personId: 'demo-riley', basis: 'percent', value: 20 }],
         directEntries: [], goals: [],
       },

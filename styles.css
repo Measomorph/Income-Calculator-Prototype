@@ -676,6 +676,7 @@ header p {
 .shared-base {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.75rem;
   background: var(--muted-surface);
   padding: 0.9rem 1rem;

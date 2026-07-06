@@ -325,13 +325,48 @@ export function computeMonthlyRates(people, accounts, splitConfig) {
 }
 
 /**
- * Months until `target` is reached from `current` at `monthlyRate`.
- * Returns 0 when already reached, null when it never will be.
+ * Converts a quoted AER percentage into the equivalent monthly compound
+ * rate: (1 + AER)^(1/12) − 1, so twelve months of compounding lands
+ * exactly on the annual figure.
  */
-export function monthsToTarget(current, target, monthlyRate) {
+export function monthlyInterestRate(aerPercent) {
+  const aer = Number(aerPercent) || 0;
+  if (aer <= 0) return 0;
+  return Math.pow(1 + aer / 100, 1 / 12) - 1;
+}
+
+/**
+ * Balance after `months` of contributions at `monthlyRate` with optional
+ * monthly-compounded interest (from an AER %). Contributions are treated
+ * as arriving through the month, earning interest from the month they land.
+ */
+export function projectBalance(current, monthlyRate, months, aerPercent = 0) {
+  const rate = Number(monthlyRate) || 0;
+  const i = monthlyInterestRate(aerPercent);
+  if (i === 0) return current + rate * months;
+  const growth = Math.pow(1 + i, months);
+  return current * growth + rate * ((growth - 1) / i);
+}
+
+/**
+ * Months until `target` is reached from `current` at `monthlyRate`,
+ * optionally with interest compounding (AER %). Returns 0 when already
+ * reached, null when it never will be.
+ */
+export function monthsToTarget(current, target, monthlyRate, aerPercent = 0) {
   if (current >= target) return 0;
-  if (!Number.isFinite(monthlyRate) || monthlyRate <= 0.005) return null;
-  return Math.ceil((target - current) / monthlyRate);
+  const i = monthlyInterestRate(aerPercent);
+  const rate = Number.isFinite(monthlyRate) ? monthlyRate : 0;
+  if (i === 0 || current <= 0) {
+    if (rate <= 0.005) return null;
+  }
+  if (i === 0) return Math.ceil((target - current) / rate);
+  let balance = current;
+  for (let month = 1; month <= 1200; month++) {
+    balance = balance * (1 + i) + rate;
+    if (balance >= target) return month;
+  }
+  return null;
 }
 
 export function computeSharedTotals(allocation, sharedStartingBalance, sharedDirectEntries) {

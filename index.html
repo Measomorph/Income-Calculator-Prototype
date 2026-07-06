@@ -210,6 +210,10 @@
             Starting balance
             <input type="number" step="0.01" value="0" class="account-starting" aria-label="Account starting balance" />
           </label>
+          <label>
+            Interest rate (AER %)
+            <input type="number" step="0.01" min="0" placeholder="0" class="account-interest" aria-label="Account interest rate, annual equivalent rate percent" />
+          </label>
         </div>
 
         <div class="rules-block">
@@ -289,7 +293,7 @@
           <strong>12-month projection</strong>
           <span class="pill">at current rates</span>
         </div>
-        <p class="projection-note">Recurring inflows only — one-off entries and future direct additions aren't projected.</p>
+        <p class="projection-note">Recurring inflows only — one-off entries and future direct additions aren't projected. Accounts with an interest rate compound monthly; interest may be taxable above your Personal Savings Allowance.</p>
         <div class="projection-table" data-role="projection-table"></div>
       </div>
 
