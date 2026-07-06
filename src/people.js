@@ -233,6 +233,7 @@ export function createPeopleController({ grid, template, formatCurrency, getInte
 
     renderCategoryChips(person);
     person.goalsView.render();
+    person.goalsCountEl.textContent = String(person.goals.length);
   }
 
   function renderAll() {
@@ -314,6 +315,8 @@ export function createPeopleController({ grid, template, formatCurrency, getInte
         balance: card.querySelector('[data-field="balance-total"]'),
         keep: card.querySelector('[data-field="keep-total"]'),
       },
+      goalsCollapse: card.querySelector('[data-role="goals-collapse"]'),
+      goalsCountEl: card.querySelector('[data-field="goals-count"]'),
       entries: (data.entries || []).map((entry) => ({ ...entry })),
       goals: (data.goals || []).map((goal) => ({ ...goal })),
       metrics: { income: 0, expense: 0, net: 0, byCategory: { income: {}, expense: {} } },
@@ -322,6 +325,7 @@ export function createPeopleController({ grid, template, formatCurrency, getInte
 
     nameInput.value = data.name || '';
     customShareInput.value = String(data.customShare ?? 0);
+    person.goalsCollapse.open = person.goals.length > 0;
 
     person.goalsView = createGoalsView({
       container: card.querySelector('[data-role="person-goals"]'),

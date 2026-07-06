@@ -89,6 +89,7 @@ export function createAccountsController({ grid, template, formatCurrency, getPe
       account.rulesList.appendChild(chip);
     });
     ensurePlaceholder(account.rulesList, 'No rules yet — money only arrives via direct additions.');
+    account.rulesCountEl.textContent = String(account.rules.length);
 
     const isPrimary = !!account.primary;
     account.primaryNote.hidden = !isPrimary;
@@ -166,6 +167,8 @@ export function createAccountsController({ grid, template, formatCurrency, getPe
       account.directList.appendChild(chip);
     });
     ensurePlaceholder(account.directList, 'No direct additions or withdrawals yet.');
+    account.directCountEl.textContent = String(account.directEntries.length);
+    account.goalsCountEl.textContent = String(account.goals.length);
 
     const directTotal = account.directEntries.reduce((sum, entry) => sum + entry.amount, 0);
     account.projectedBalance = account.startingBalance + inflow + contributionTotal + directTotal;
@@ -205,6 +208,12 @@ export function createAccountsController({ grid, template, formatCurrency, getPe
       interestInput: card.querySelector('.account-interest'),
       rulesList: card.querySelector('[data-role="rules-list"]'),
       ruleForm: card.querySelector('[data-role="rule-form"]'),
+      rulesCollapse: card.querySelector('[data-role="rules-collapse"]'),
+      rulesCountEl: card.querySelector('[data-field="rules-count"]'),
+      directCollapse: card.querySelector('[data-role="direct-collapse"]'),
+      directCountEl: card.querySelector('[data-field="direct-count"]'),
+      goalsCollapse: card.querySelector('[data-role="goals-collapse"]'),
+      goalsCountEl: card.querySelector('[data-field="goals-count"]'),
       contributionsBlock: card.querySelector('[data-role="contributions-block"]'),
       contributionsList: card.querySelector('[data-role="contributions"]'),
       contributionTotalEl: card.querySelector('[data-field="contribution-total"]'),
@@ -224,6 +233,11 @@ export function createAccountsController({ grid, template, formatCurrency, getPe
     account.startingInput.value = account.startingBalance.toFixed(2);
     account.interestInput.value = account.interestRate > 0 ? String(account.interestRate) : '';
     account.removeButton.hidden = account.primary;
+
+    // Sections with content start open; empty ones stay tucked away.
+    account.rulesCollapse.open = account.rules.length > 0;
+    account.directCollapse.open = account.directEntries.length > 0;
+    account.goalsCollapse.open = account.goals.length > 0;
 
     account.goalsView = createGoalsView({
       container: card.querySelector('[data-role="account-goals"]'),

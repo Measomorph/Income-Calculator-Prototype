@@ -788,6 +788,28 @@ document.getElementById('print-snapshots').addEventListener('click', () => {
   window.print();
 });
 
+// Clicking a "?" inside a <summary> should show help, not toggle the section.
+document.addEventListener('click', (event) => {
+  if (event.target instanceof HTMLElement && event.target.classList.contains('help-tip')) {
+    event.preventDefault();
+  }
+});
+
+// Collapsed sections would vanish from the printed report — open them for
+// printing and restore afterwards.
+window.addEventListener('beforeprint', () => {
+  document.querySelectorAll('details:not([open])').forEach((details) => {
+    details.dataset.reopenClosed = 'yes';
+    details.open = true;
+  });
+});
+window.addEventListener('afterprint', () => {
+  document.querySelectorAll('details[data-reopen-closed]').forEach((details) => {
+    delete details.dataset.reopenClosed;
+    details.open = false;
+  });
+});
+
 initTheme(document.getElementById('theme-toggle'));
 document.getElementById('theme-toggle').addEventListener('click', () => {
   snapshotsController.redrawChart();
