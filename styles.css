@@ -1104,6 +1104,12 @@ header p {
   display: block;
 }
 
+#category-trend-chart {
+  width: 100%;
+  height: 200px;
+  display: block;
+}
+
 .snapshot-list {
   display: flex;
   flex-direction: column;

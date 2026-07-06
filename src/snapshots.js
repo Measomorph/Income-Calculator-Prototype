@@ -18,6 +18,28 @@ function cssVar(name, fallback) {
   return value || fallback;
 }
 
+/** Draws a message word-wrapped to the canvas width instead of clipping. */
+function drawWrappedMessage(ctx, text, maxWidth, height) {
+  const words = text.split(' ');
+  const lines = [];
+  let line = '';
+  words.forEach((word) => {
+    const candidate = line ? `${line} ${word}` : word;
+    if (ctx.measureText(candidate).width > maxWidth && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = candidate;
+    }
+  });
+  if (line) lines.push(line);
+  const lineHeight = 20;
+  const startY = height / 2 - ((lines.length - 1) * lineHeight) / 2;
+  lines.forEach((textLine, index) => {
+    ctx.fillText(textLine, 16, startY + index * lineHeight);
+  });
+}
+
 export function createSnapshotsController({
   snapshotForm,
   snapshotMonthInput,
@@ -191,10 +213,11 @@ export function createSnapshotsController({
     if (!data.length || seriesKeys.length === 0) {
       ctx.fillStyle = chartText;
       ctx.font = '14px "Segoe UI", sans-serif';
-      ctx.fillText(
+      drawWrappedMessage(
+        ctx,
         !data.length ? 'Snapshots will render here once captured.' : 'Select at least one series to plot.',
-        16,
-        height / 2
+        width - 32,
+        height
       );
       return;
     }
@@ -293,7 +316,7 @@ export function createSnapshotsController({
     if (withCategories.length < 2) {
       ctx.fillStyle = cssVar('--chart-text', '#94a3b8');
       ctx.font = '14px "Segoe UI", sans-serif';
-      ctx.fillText('Category trends appear once two or more snapshots include category data.', 16, height / 2);
+      drawWrappedMessage(ctx, 'Category trends appear once two or more snapshots include category data.', width - 32, height);
       return;
     }
 
